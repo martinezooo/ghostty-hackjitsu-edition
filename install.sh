@@ -13,11 +13,18 @@ NO_BREW=0
 NO_SHELL=0
 TOOLS=0
 NO_NVIM=0
+CHECK_ONLY=0
+STRICT_CHECK=0
+USER_INSTALL=-1
 
 usage() {
   cat <<'EOF'
-Usage: ./install.sh [--dry-run] [--no-brew] [--no-shell] [--no-nvim] [--tools]
+Usage: ./install.sh [--dry-run] [--check] [--user] [--system] [--no-brew] [--no-shell] [--no-nvim] [--tools] [--strict]
   --dry-run   Show intended changes without writing or installing anything
+  --check     Verify installed packages and settings without changing anything
+  --user      Force per-user mode: no sudo; use ~/Applications for Ghostty
+  --system    Force system-wide casks (needs administrator rights)
+  --strict    Treat verification warnings as errors
   --no-brew   Install configuration only (skip Homebrew package installation)
   --no-shell  Do not add the optional shell integration to ~/.zshrc
   --no-nvim   Skip Neovim, LazyVim, and their dependencies
@@ -28,6 +35,10 @@ EOF
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=1 ;;
+    --check) CHECK_ONLY=1 ;;
+    --user) USER_INSTALL=1 ;;
+    --system) USER_INSTALL=0 ;;
+    --strict) STRICT_CHECK=1 ;;
     --no-brew) NO_BREW=1 ;;
     --no-shell) NO_SHELL=1 ;;
     --no-nvim) NO_NVIM=1 ;;
@@ -37,24 +48,315 @@ for arg in "$@"; do
   esac
 done
 
+verify_installation() {
+  local DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+  local GHOSTTY_CONFIG="$CONFIG_HOME/ghostty"
+  local HJ_CONFIG="$CONFIG_HOME/ghostty-hackjitsu"
+  local NVIM_CONFIG="$CONFIG_HOME/nvim"
+  local CHECK_NVIM=$((1 - NO_NVIM)) CHECK_SHELL=$((1 - NO_SHELL)) CHECK_TOOLS="$TOOLS"
+  local STRICT="$STRICT_CHECK" PASSES=0 WARNS=0 FAILS=0
+check_pass() { printf '[PASS] %s\n' "$*"; PASSES=$((PASSES + 1)); }
+check_warn() { printf '[WARN] %s\n' "$*"; WARNS=$((WARNS + 1)); }
+check_fail() { printf '[FAIL] %s\n' "$*"; FAILS=$((FAILS + 1)); }
+check_available() { command -v "$1" >/dev/null 2>&1; }
+check_formula() {
+  local label="$1" executable="$2" formula="$3"
+  if check_available "$executable"; then
+    check_pass "$label available ($executable)"
+    if check_available brew && ! brew list --formula "$formula" >/dev/null 2>&1; then
+      check_warn "$label exists but is not registered as Homebrew formula $formula"
+    fi
+  else
+    check_fail "$label missing. Fix: brew install $formula"
+  fi
+}
+check_file_exists() {
+  if [ -f "$1" ]; then check_pass "$2"; else check_fail "$2 missing: $1"; fi
+}
+
+printf 'Ghostty Hack-Jitsu Edition — installation diagnostics\n\n'
+if [ "$(uname -s)" = Darwin ]; then check_pass "macOS supported"; else check_fail "macOS required"; fi
+if check_available brew; then
+  check_pass "Homebrew available"
+else
+  check_fail "Homebrew missing (https://brew.sh)"
+fi
+
+# macOS app bundles may not put the ghostty CLI into PATH.
+GHOSTTY="${HJ_GHOSTTY_BINARY:-}"
+if [ -z "$GHOSTTY" ]; then
+  for candidate in /Applications/Ghostty.app/Contents/MacOS/ghostty \
+                   "$HOME/Applications/Ghostty.app/Contents/MacOS/ghostty"; do
+    if [ -x "$candidate" ]; then GHOSTTY="$candidate"; break; fi
+  done
+fi
+if [ -z "$GHOSTTY" ] && check_available ghostty; then GHOSTTY="$(command -v ghostty)"; fi
+if [ -n "$GHOSTTY" ] && [ -x "$GHOSTTY" ]; then
+  check_pass "Ghostty executable: $GHOSTTY"
+  if check_available brew && ! brew list --cask ghostty >/dev/null 2>&1; then
+    check_warn "Ghostty not registered as Homebrew cask (application may be installed manually)"
+  fi
+  if "$GHOSTTY" +validate-config >/dev/null 2>&1; then
+    check_pass "Ghostty configuration syntax valid"
+  else
+    check_fail "Ghostty configuration validation failed: ghostty +validate-config"
+  fi
+  effective="$("$GHOSTTY" +show-config 2>/dev/null)" || effective=""
+  if grep -Fq 'theme = hack-jitsu' <<< "$effective" &&
+     grep -Fq 'font-family = JetBrainsMono Nerd Font Mono' <<< "$effective" &&
+     grep -Fq 'quick-terminal-size = 400px,1728px' <<< "$effective" &&
+     grep -Fq 'hack-jitsu-cursor.glsl' <<< "$effective" &&
+     grep -Fq 'hack-jitsu-watermark.png' <<< "$effective"; then
+    check_pass "Ghostty active theme, font, dropdown, shader and watermark"
+  else
+    check_fail "Ghostty effective configuration does not match Hack-Jitsu profile"
+  fi
+  bindings="$("$GHOSTTY" +list-keybinds 2>/dev/null)" || bindings=""
+  if grep -Eq 'alt\+tab=toggle_quick_terminal' <<< "$bindings"; then
+    check_pass "Dropdown Option+Tab binding active"
+  else
+    check_fail "Dropdown Option+Tab binding missing"
+  fi
+  fonts="$("$GHOSTTY" +list-fonts 2>/dev/null)" || fonts=""
+  if grep -Fq 'JetBrainsMono Nerd Font Mono' <<< "$fonts"; then
+    face="$("$GHOSTTY" +show-face --cp=65 2>/dev/null)" || face=""
+    if grep -Fq 'JetBrainsMono Nerd Font Mono' <<< "$face"; then
+      check_pass "JetBrainsMono Nerd Font Mono actually rendered"
+    else
+      check_fail "Nerd Font installed but Ghostty renders a fallback face"
+    fi
+  else
+    check_fail "Nerd Font not available. Fix: brew install --cask font-jetbrains-mono-nerd-font"
+  fi
+  if check_available brew && ! brew list --cask font-jetbrains-mono-nerd-font >/dev/null 2>&1; then
+    check_warn "Nerd Font is not recorded as a Homebrew cask"
+  fi
+else
+  check_fail "Ghostty executable missing. Fix: brew install --cask ghostty"
+fi
+
+for asset in config themes/hack-jitsu shaders/hack-jitsu-cursor.glsl hack-jitsu-watermark.png; do
+  check_file_exists "$GHOSTTY_CONFIG/$asset" "Ghostty asset: $asset"
+done
+for legacy in "$HOME/Library/Application Support/com.mitchellh.ghostty/config" \
+              "$HOME/Library/Application Support/com.mitchellh.ghostty/config.ghostty"; do
+  if [ -f "$legacy" ]; then
+    check_warn "Additional Ghostty config exists; review potential overrides: $legacy"
+  fi
+done
+
+check_formula "Navi cheats UI" navi navi
+check_formula "fzf selector" fzf fzf
+check_formula "Zellij multiplexer" zellij zellij
+check_file_exists "$HJ_CONFIG/shell.zsh" "Shell helpers installed"
+if [ -f "$HJ_CONFIG/shell.zsh" ] && check_available zsh &&
+   zsh -n "$HJ_CONFIG/shell.zsh" >/dev/null 2>&1; then
+  check_pass "Shell helpers parse as zsh"
+else
+  check_fail "Shell helpers invalid or zsh missing"
+fi
+for name in pentest network admin android terminal; do
+  check_file_exists "$HJ_CONFIG/cheats/$name.cheat" "Cheat sheet: $name"
+done
+if check_available navi && [ -d "$HJ_CONFIG/cheats" ]; then
+  snippet="$(navi --path "$HJ_CONFIG/cheats" --query 'Git: status repo' --best-match --print 2>/dev/null)" || snippet=""
+  if [ "$snippet" = 'git status --short --branch' ]; then
+    check_pass "Navi reads Hack-Jitsu cheats"
+  else
+    check_fail "Navi cannot resolve bundled cheat sheet"
+  fi
+fi
+if [ "$CHECK_SHELL" -eq 1 ]; then
+  if [ -f "$HOME/.zshrc" ] && grep -Fq '# >>> Ghostty Hack-Jitsu Edition >>>' "$HOME/.zshrc"; then
+    check_pass "Shell integration present in ~/.zshrc"
+  else
+    check_fail "Shell integration missing in ~/.zshrc (review README)"
+  fi
+else
+  check_pass "Shell integration intentionally skipped"
+fi
+
+if [ "$CHECK_NVIM" -eq 1 ]; then
+  check_formula "Neovim" nvim neovim
+  check_formula "lazygit" lazygit lazygit
+  check_formula "ripgrep" rg ripgrep
+  check_formula "fd" fd fd
+  check_formula "Tree-sitter CLI" tree-sitter tree-sitter-cli
+  if check_available nvim; then
+    if nvim --headless -u NONE -c 'lua if vim.fn.has("nvim-0.11.2") == 0 then vim.cmd("cq") end' -c 'qa!' >/dev/null 2>&1; then
+      check_pass "Neovim version meets LazyVim minimum (0.11.2)"
+    else
+      check_fail "Neovim version too old for current LazyVim"
+    fi
+  fi
+  check_file_exists "$NVIM_CONFIG/init.lua" "Neovim entry point"
+  check_file_exists "$NVIM_CONFIG/lua/config/lazy.lua" "LazyVim bootstrap config"
+  if [ -d "$DATA_HOME/nvim/lazy/LazyVim" ]; then
+    check_pass "LazyVim plugins initialized"
+  else
+    check_warn "LazyVim plugins not initialized yet: run nvim once, then ./install.sh --check"
+  fi
+  if ! check_available cc; then check_warn "C compiler missing; install Xcode Command Line Tools if needed"; fi
+  if ! check_available curl; then check_warn "curl missing; required for LazyVim bootstrap"; fi
+else
+  check_pass "Neovim checks intentionally skipped"
+fi
+if [ "$CHECK_TOOLS" -eq 1 ]; then
+  check_formula "nmap" nmap nmap
+  check_formula "jq" jq jq
+  check_formula "ripgrep" rg ripgrep
+  check_formula "yq" yq yq
+fi
+
+printf '\nSummary: %d PASS | %d WARN | %d FAIL\n' "$PASSES" "$WARNS" "$FAILS"
+if [ "$FAILS" -gt 0 ]; then return 1; fi
+if [ "$STRICT" -eq 1 ] && [ "$WARNS" -gt 0 ]; then return 1; fi
+return 0
+}
+
 if [ "$(uname -s)" != Darwin ]; then
   echo "Only macOS is supported." >&2
   exit 2
 fi
-if [ "$DRY_RUN" -eq 0 ] && [ "$NO_BREW" -eq 0 ] && ! command -v brew >/dev/null 2>&1; then
-  echo "Homebrew is not installed. See https://brew.sh, or use --no-brew." >&2
+if [ "$CHECK_ONLY" -eq 1 ]; then
+  verify_installation
+  exit $?
+fi
+
+# Choose the smallest privilege level that can do the work.
+# Admin users keep normal Homebrew behavior; non-admin users avoid sudo.
+if [ "$USER_INSTALL" -eq -1 ]; then
+  if id -Gn | tr ' ' '\n' | grep -qx admin; then
+    USER_INSTALL=0
+  else
+    USER_INSTALL=1
+  fi
+fi
+if [ "$USER_INSTALL" -eq 0 ] && ! id -Gn | tr ' ' '\n' | grep -qx admin; then
+  echo "ERROR: --system requires an administrator account." >&2
+  echo "       Retry without --system; standard-user installation is supported when Homebrew is writable." >&2
+  exit 2
+fi
+if [ "$USER_INSTALL" -eq 1 ]; then
+  export HOMEBREW_NO_SUDO=1
+  echo "INFO: Standard-user mode; Homebrew will not call sudo."
+fi
+if [ "$NO_BREW" -eq 0 ] && [ "$DRY_RUN" -eq 0 ] && ! command -v brew >/dev/null 2>&1; then
+  echo "ERROR: Homebrew is not available. See https://brew.sh (or use --no-brew)." >&2
   exit 2
 fi
 
+# Homebrew can install formulas without sudo only when its prefix is writable
+# by the current account; verify only when an actual install is required.
+ensure_brew_writable() {
+  if [ "$USER_INSTALL" -ne 1 ]; then return 0; fi
+  local prefix
+  prefix="$(brew --prefix 2>/dev/null || true)"
+  if [ -n "$prefix" ] && [ -w "$prefix" ]; then return 0; fi
+  echo "ERROR: This account cannot write to Homebrew prefix: ${prefix:-unknown}." >&2
+  echo "       Ask IT to provision Homebrew for this account; do not use sudo brew." >&2
+  echo "       Other installed packages can be checked with: ./install.sh --check" >&2
+  return 1
+}
+
+installed_ghostty() {
+  [ -x /Applications/Ghostty.app/Contents/MacOS/ghostty ] ||
+  [ -x "$HOME/Applications/Ghostty.app/Contents/MacOS/ghostty" ] ||
+  command -v ghostty >/dev/null 2>&1
+}
+installed_nerd_font() {
+  if command -v brew >/dev/null 2>&1 &&
+     brew list --cask font-jetbrains-mono-nerd-font >/dev/null 2>&1; then
+    return 0
+  fi
+  local exe=''
+  if [ -x /Applications/Ghostty.app/Contents/MacOS/ghostty ]; then
+    exe=/Applications/Ghostty.app/Contents/MacOS/ghostty
+  elif [ -x "$HOME/Applications/Ghostty.app/Contents/MacOS/ghostty" ]; then
+    exe="$HOME/Applications/Ghostty.app/Contents/MacOS/ghostty"
+  elif command -v ghostty >/dev/null 2>&1; then
+    exe="$(command -v ghostty)"
+  fi
+  if [ -n "$exe" ] &&
+     grep -Fq 'JetBrainsMono Nerd Font Mono' <<< "$("$exe" +list-fonts 2>/dev/null)"; then
+    return 0
+  fi
+  for dir in "$HOME/Library/Fonts" /Library/Fonts; do
+    if [ -d "$dir" ] &&
+       find "$dir" -maxdepth 1 -iname '*JetBrainsMono*Nerd*' -print -quit 2>/dev/null | grep -q .; then
+      return 0
+    fi
+  done
+  return 1
+}
+formula_executable() {
+  case "$1" in
+    ripgrep) echo rg ;;
+    fd) echo fd ;;
+    tree-sitter-cli) echo tree-sitter ;;
+    *) echo "$1" ;;
+  esac
+}
 brew_formula() {
-  if [ "$DRY_RUN" -eq 1 ]; then echo "PLAN brew install $1"; return; fi
-  if brew list --formula "$1" >/dev/null 2>&1; then echo "OK formula $1"; return; fi
-  brew install "$1"
+  local formula="$1" exe
+  exe="$(formula_executable "$formula")"
+  if command -v "$exe" >/dev/null 2>&1; then
+    echo "SKIP $formula: executable already available ($exe)"
+    return 0
+  fi
+  if command -v brew >/dev/null 2>&1 &&
+     brew list --formula "$formula" >/dev/null 2>&1; then
+    echo "SKIP $formula: Homebrew reports installed"
+    return 0
+  fi
+  if [ "$DRY_RUN" -eq 1 ]; then echo "PLAN brew install $formula"; return 0; fi
+  ensure_brew_writable || exit 2
+  echo "INSTALL formula: $formula"
+  if ! brew install "$formula"; then
+    echo "ERROR: Homebrew could not install $formula." >&2
+    echo "       If sudo reports 'not in the sudoers file', contact IT for permissions." >&2
+    echo "       Run ./install.sh --check to see remaining missing components." >&2
+    exit 2
+  fi
 }
 brew_cask() {
-  if [ "$DRY_RUN" -eq 1 ]; then echo "PLAN brew install --cask $1"; return; fi
-  if brew list --cask "$1" >/dev/null 2>&1; then echo "OK cask $1"; return; fi
-  brew install --cask "$1"
+  local cask="$1"
+  if [ "$cask" = ghostty ] && installed_ghostty; then
+    echo "SKIP ghostty: application already available"
+    return 0
+  fi
+  if [ "$cask" = font-jetbrains-mono-nerd-font ] && installed_nerd_font; then
+    echo "SKIP $cask: font already available"
+    return 0
+  fi
+  if command -v brew >/dev/null 2>&1 &&
+     brew list --cask "$cask" >/dev/null 2>&1; then
+    echo "SKIP $cask: Homebrew reports installed"
+    return 0
+  fi
+  if [ "$DRY_RUN" -eq 1 ]; then
+    if [ "$USER_INSTALL" -eq 1 ] && [ "$cask" = ghostty ]; then
+      echo "PLAN brew install --cask --appdir=$HOME/Applications ghostty"
+    else
+      echo "PLAN brew install --cask $cask"
+    fi
+    return 0
+  fi
+  ensure_brew_writable || exit 2
+  echo "INSTALL cask: $cask"
+  if [ "$USER_INSTALL" -eq 1 ] && [ "$cask" = ghostty ]; then
+    mkdir -p "$HOME/Applications"
+    if ! brew install --cask --appdir="$HOME/Applications" "$cask"; then
+      echo "ERROR: Ghostty could not be installed in ~/Applications." >&2
+      echo "       Your Mac or Homebrew may require IT provisioning." >&2
+      exit 2
+    fi
+  elif ! brew install --cask "$cask"; then
+    echo "ERROR: Homebrew could not install $cask." >&2
+    echo "       If you see 'not in the sudoers file', use IT-approved installation." >&2
+    echo "       A standard-user account cannot bypass that restriction." >&2
+    exit 2
+  fi
 }
 
 copy_asset() {
@@ -158,3 +460,14 @@ fi
 
 echo "Setup complete. Open Ghostty and press Option+Tab to toggle its dropdown."
 echo "Run hjhelp for cheats, or nvim to bootstrap LazyVim on first launch."
+if [ "$DRY_RUN" -eq 0 ] && [ "$NO_BREW" -eq 0 ]; then
+  echo
+  echo "Verifying the installation (built into install.sh):"
+  if ! verify_installation; then
+    echo "Installation completed but verification found errors." >&2
+    echo "Fix the [FAIL] entries, then run: ./install.sh --check" >&2
+    exit 1
+  fi
+elif [ "$DRY_RUN" -eq 0 ]; then
+  echo "Package verification skipped (--no-brew). Run ./install.sh --check when ready."
+fi

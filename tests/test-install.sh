@@ -20,9 +20,9 @@ grep -Fq 'WARNING: Ghostty may override this profile' "$TMP/legacy-warning.log"
 grep -qx 'font-size = 21' "$legacy/config.ghostty"
 # Package plans respect the Neovim opt-out.
 bash "$ROOT/install.sh" --dry-run >"$TMP/full-plan.log"
-grep -q 'PLAN brew install neovim' "$TMP/full-plan.log"
+grep -Eq '(PLAN brew install neovim|SKIP neovim:)' "$TMP/full-plan.log"
 bash "$ROOT/install.sh" --dry-run --no-nvim >"$TMP/no-nvim-plan.log"
-if grep -q 'PLAN brew install neovim' "$TMP/no-nvim-plan.log"; then
+if grep -Eq '(PLAN brew install neovim|SKIP neovim:)' "$TMP/no-nvim-plan.log"; then
   echo "Unexpected Neovim package installation with --no-nvim" >&2; exit 1
 fi
 # Simulate pre-existing user settings, ensure backups.
