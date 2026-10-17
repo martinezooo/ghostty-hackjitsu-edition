@@ -1,0 +1,66 @@
+% network, macos
+
+# interfejsy z adresami (macOS nie ma 'ip addr')
+ifconfig | grep -E '^[a-z0-9]+:|inet '
+
+# same nazwy aktywnych interfejsow
+ifconfig -l
+
+# ktory interfejs i brama obsluza dany adres
+route -n get <adres>
+
+# brama domyslna
+route -n get default | grep -E 'gateway|interface'
+
+# co nasluchuje na portach TCP
+sudo lsof -nP -iTCP -sTCP:LISTEN
+
+# kto trzyma konkretny port
+sudo lsof -nP -i :<port>
+
+# polaczenia wychodzace danego procesu
+sudo lsof -nP -i -a -c <proces>
+
+# tablica ARP, czyli sasiedzi w LAN
+arp -a
+
+# szybki przeglad zywych hostow w podsieci
+nmap -sn <siec>
+
+# serwery DNS, ktorych faktycznie uzywa system
+scutil --dns | grep nameserver | sort -u
+
+# rozwiaz nazwe tak, jak zrobi to system (respektuje /etc/hosts i split-DNS)
+dscacheutil -q host -a name <nazwa>
+
+# wyczysc cache DNS
+sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder
+
+# publiczny adres IP
+curl -s https://ifconfig.me
+
+# uslugi sieciowe i ich kolejnosc
+networksetup -listallnetworkservices
+
+# aktualne Wi-Fi: SSID, kanal, sila sygnalu
+system_profiler SPAirPortDataType | awk '/Current Network/,/Channel/' | head -20
+
+# tcpdump na interfejsie, czytelnie i na zywo
+sudo tcpdump -i <interfejs> -n -l
+
+# tcpdump: tylko ruch do lub z konkretnego hosta
+sudo tcpdump -i <interfejs> -n host <adres>
+
+# tcpdump: tylko DNS
+sudo tcpdump -i <interfejs> -n port 53
+
+# trasa do celu z opoznieniami na kazdym skoku
+gping <adres>
+
+# klasyczny traceroute
+traceroute <adres>
+
+# sprawdz czy port jest otwarty, bez skanera
+nc -zv <adres> <port>
+
+$ interfejs: ifconfig -l | tr ' ' '\n' | grep -v '^$'

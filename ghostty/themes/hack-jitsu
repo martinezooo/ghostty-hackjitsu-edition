@@ -1,0 +1,41 @@
+# hack-jitsu — motyw wyprowadzony ze zmiennych CSS hack-jitsu.com
+#
+#   --background       0 0%  4%   -> #0a0a0a
+#   --foreground       0 0% 92%   -> #ebebeb
+#   --accent/--primary 0 85% 50%  -> #ec1313
+#   --muted-foreground 0 0% 55%   -> #8c8c8c
+#   --border           0 0% 16%   -> #292929
+#   --terminal-green   120 60% 50% -> #33cc33
+#
+# Czerwien i zielen sa wziete wprost ze strony. Pozostale barwy ANSI
+# wyprowadzone tym samym przepisem HSL (S=70%, L=50%), zeby paleta trzymala
+# sie jednej rodziny zamiast byc przypadkowa teczą.
+
+background = #0a0a0a
+foreground = #ebebeb
+
+cursor-color = #ec1313
+cursor-text  = #0a0a0a
+
+selection-background = #521414
+selection-foreground = #ebebeb
+
+# --- normalne ---
+palette = 0=#1a1a1a
+palette = 1=#ec1313
+palette = 2=#33cc33
+palette = 3=#d9ac26
+palette = 4=#2680d9
+palette = 5=#d9269d
+palette = 6=#26d9d9
+palette = 7=#ebebeb
+
+# --- jasne (L podniesione do 65%) ---
+palette = 8=#545454
+palette = 9=#f25a5a
+palette = 10=#70db70
+palette = 11=#e4c567
+palette = 12=#67a6e4
+palette = 13=#e467bb
+palette = 14=#67e4e4
+palette = 15=#ffffff

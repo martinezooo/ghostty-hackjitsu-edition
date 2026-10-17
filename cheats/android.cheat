@@ -1,0 +1,25 @@
+% android, adb, scrcpy
+
+# Android: lista urzadzen z numerami seryjnymi
+adb devices -l
+
+# Android: zdalna powloka urzadzenia
+adb -s <serial> shell
+
+# Android: mirror ekranu wybranego urzadzenia
+scrcpy -s <serial>
+
+# Android: wirtualny ekran (jesli wersja scrcpy i Android obsluguja)
+scrcpy -s <serial> --new-display=1200x1920/240
+
+# Android: logi systemowe na zywo
+adb -s <serial> logcat
+
+# Android: lista pakietow uzytkownika
+adb -s <serial> shell pm list packages -3
+
+# Android: szczegoly uslug i aktywnosci danego pakietu
+adb -s <serial> shell dumpsys package <pakiet>
+
+# Android: pobierz plik z urzadzenia
+adb -s <serial> pull <plik_na_urzadzeniu> <lokalny_katalog>

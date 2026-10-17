@@ -1,0 +1,80 @@
+% admin, macos, system
+
+# macOS: wersja systemu i architektura
+sw_vers && uname -m
+
+# Homebrew: lista zainstalowanych pakietow i aplikacji
+brew list --formula && brew list --cask
+
+# Homebrew: pakiety wymagajace aktualizacji
+brew outdated
+
+# storage: zajetosc dyskow
+df -h
+
+# storage: najwieksze katalogi w biezacym miejscu
+du -sh ./* 2>/dev/null | sort -h
+
+# procesy: top wedlug CPU
+ps aux | sort -nrk 3 | head -20
+
+# procesy: top wedlug pamieci
+ps aux | sort -nrk 4 | head -20
+
+# launchd: lista agentow aktywnego uzytkownika
+launchctl list
+
+# logi: ostatnia godzina bledow systemowych
+log show --last 1h --style compact --predicate 'messageType == error'
+
+# pliki: informacje o uprawnieniach
+stat -f '%Sp %Su:%Sg %N' <plik>
+
+# podpis aplikacji macOS
+codesign -dv --verbose=4 <aplikacja>
+
+# quarantine: odczyt atrybutow pliku
+xattr -l <plik>
+
+% admin, ssh, remote
+
+# SSH: laczenie z wybranym hostem
+ssh <user>@<host>
+
+# SSH: forwarding portu lokalnego do uslugi na serwerze
+ssh -N -L <port_lokalny>:127.0.0.1:<port_zdalny> <user>@<host>
+
+# SSH: tunel SOCKS na lokalnym porcie
+ssh -N -D 1080 <user>@<host>
+
+# SSH: weryfikacja konfiguracji bez logowania
+ssh -G <host>
+
+# SCP: wyslij plik do katalogu uzytkownika
+scp <plik> <user>@<host>:~/
+
+# Rsync: synchronizacja katalogu (bez kasowania plikow)
+rsync -avh <katalog>/ <user>@<host>:<katalog_zdalny>/
+
+% admin, docker, proxmox
+
+# Docker: kontenery (takze zatrzymane)
+docker ps -a
+
+# Docker: logi wybranego kontenera
+docker logs --tail 100 -f <kontener>
+
+# Docker: interaktywna powloka w kontenerze
+docker exec -it <kontener> sh
+
+# Docker: ilosc uzywanego miejsca
+docker system df
+
+# Proxmox: lista kontenerow LXC (na hoscie Proxmox)
+pct list
+
+# Proxmox: lista VM (na hoscie Proxmox)
+qm list
+
+# Proxmox: lista dostepnych zasobow dyskowych
+pvesm status

@@ -1,0 +1,98 @@
+font-family = JetBrainsMonoNerdFont
+font-size = 14
+font-thicken = true
+adjust-cell-height = 2
+
+# Motyw przypiety na sztywno: przy macos-hidden aplikacja jest "accessory"
+# i macOS raportuje jej jasny wyglad, wiec regula dark: sie nie odpalala.
+# Paleta wyprowadzona z hack-jitsu.com; plik: ~/.config/ghostty/themes/hack-jitsu
+theme = hack-jitsu
+background-opacity = 0.9
+background-blur-radius = 20
+
+# Responsywny oddech wewnatrz terminala. Balance rozklada resztke siatki
+# rowno na obie strony zamiast doklejac ja do prawej/dolu.
+window-padding-x = 28
+window-padding-y = 10
+window-padding-balance = true
+
+# never, nie always: przy initial-window=false odtwarzanie okien wskrzesza
+# przypadkowe zwykle okna zamiast dropdownu (i kloci sie z trybem Guake)
+window-save-state = never
+window-theme = dark
+
+cursor-style = bar
+cursor-style-blink = true
+cursor-opacity = 0.8
+mouse-hide-while-typing = true
+copy-on-select = clipboard
+
+# Guake-mode: brak ikony w Docku i w Cmd+Tab, start bez zwyklego okna.
+# Jedyne wejscie: global opt+tab. Uwaga: przy macos-hidden macOS nie
+# przelacza automatycznie ukladu klawiatury dla tej aplikacji.
+macos-hidden = always
+initial-window = false
+quit-after-last-window-closed = false
+
+quick-terminal-position = top
+# Zachowaj oryginalny rozmiar dropdownu z MacBooka: Ghostty domyslnie dla
+# pozycji top uzywa pelnej szerokosci ekranu i 400 px wysokosci. MacBook ma
+# logicznie 1728 px szerokosci, wiec 400x1728 odtwarza jego stary wyglad 1:1,
+# a na ultrawide ogranicza tylko szerokosc zamiast rozciagac sie do 5120 px.
+quick-terminal-size = 400px,1728px
+quick-terminal-screen = mouse
+quick-terminal-autohide = true
+quick-terminal-space-behavior = move
+quick-terminal-animation-duration = 0
+
+clipboard-paste-protection = true
+clipboard-paste-bracketed-safe = true
+shell-integration = detect
+scrollback-limit = 25000000
+
+keybind = global:opt+tab=toggle_quick_terminal
+keybind = global:ctrl+opt+shift+cmd+f11=toggle_quick_terminal
+keybind = cmd+t=new_tab
+keybind = cmd+w=close_surface
+keybind = cmd+shift+d=new_split:right
+keybind = cmd+shift+enter=new_split:down
+keybind = cmd+shift+h=goto_split:left
+keybind = cmd+shift+l=goto_split:right
+keybind = cmd+shift+k=goto_split:top
+keybind = cmd+shift+j=goto_split:bottom
+keybind = cmd+shift+e=equalize_splits
+keybind = cmd+shift+f=toggle_split_zoom
+keybind = cmd+plus=increase_font_size:1
+keybind = cmd+minus=decrease_font_size:1
+keybind = cmd+zero=reset_font_size
+keybind = cmd+shift+comma=reload_config
+
+# wavedash: cmd+shift+g wpisuje "wave" i uruchamia centrum dowodzenia (zellij)
+keybind = cmd+shift+g=text:wave\n
+# Copy / paste zostają macowe
+keybind = cmd+c=copy_to_clipboard
+keybind = cmd+v=paste_from_clipboard
+
+# Anulowanie procesu
+keybind = ctrl+c=unbind
+keybind = cmd+shift+c=text:\x03
+keybind = ctrl+shift+c=text:\x03
+
+# === Shader kursora ===
+# 36 shaderow lezy w ~/.config/ghostty/shaders/ (repo hackr-sh/ghostty-shaders).
+# custom-shader dziala W LOCIE: podmien sciezke, zapisz, cmd+shift+, i widzisz efekt.
+# Alternatywy: smear_cursor_blocks.glsl, cursor_lightning.glsl
+# Animacja chodzi tylko gdy okno ma fokus (<10% CPU), wiec przy autohide panelu
+# nie mieli w tle.
+custom-shader = shaders/hack-jitsu-cursor.glsl
+
+# === Znak wodny hack-jitsu ===
+# Wygenerowany z JetBrains Mono ExtraBold: HACK w #ebebeb, JITSU w #ec1313
+# z gaussowska poswiata, tak jak w hero na hack-jitsu.com.
+# fit=none -> bez skalowania, wiec napis ma staly rozmiar niezaleznie od okna.
+# Za mocny/za slaby? Steruj wylacznie background-image-opacity.
+background-image = hack-jitsu-watermark.png
+background-image-opacity = 0.12
+background-image-position = bottom-right
+background-image-fit = none
+background-image-repeat = false

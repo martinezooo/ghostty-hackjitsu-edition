@@ -1,0 +1,51 @@
+% terminal, ghostty, zellij
+
+# Ghostty: sprawdz konfiguracje
+/Applications/Ghostty.app/Contents/MacOS/ghostty +validate-config
+
+# Ghostty: pokaz efektywna konfiguracje
+/Applications/Ghostty.app/Contents/MacOS/ghostty +show-config
+
+# Ghostty: edytuj konfiguracje
+${EDITOR:-vi} "${XDG_CONFIG_HOME:-$HOME/.config}/ghostty/config"
+
+# Ghostty: skroty dropdownu i podzialu okien
+printf 'Option+Tab = dropdown | Cmd+T = tab | Cmd+Shift+D = split | Cmd+Shift+, = reload\n'
+
+# Zellij: dolacz do sesji wave lub ja utworz
+wave
+
+# Zellij: lista sesji
+zellij list-sessions
+
+# Navi: interaktywne sciagi z tego pakietu
+hjhelp
+
+% terminal, git, data
+
+# Git: status repo i obecna galaz
+git status --short --branch
+
+# Git: historia ostatnich commitow
+git log --oneline --decorate -15
+
+# Git: porownaj zmiany (bez zatwierdzania)
+git diff
+
+# jq: czytelny podglad JSON
+jq . <plik_json>
+
+# curl: naglowki odpowiedzi
+curl -I <url>
+
+# openssl: certyfikat TLS hosta
+openssl s_client -connect <host>:443 -servername <host> </dev/null
+
+# grep: rekurencyjne wyszukiwanie tekstu
+rg -n <fraza> .
+
+# bat: podglad pliku z numerami linii
+bat <plik>
+
+# fzf: wyszukanie pliku
+find . -type f | fzf
