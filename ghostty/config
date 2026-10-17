@@ -1,4 +1,4 @@
-font-family = JetBrainsMonoNerdFont
+font-family = JetBrainsMono Nerd Font Mono
 font-size = 14
 font-thicken = true
 adjust-cell-height = 2
@@ -79,9 +79,9 @@ keybind = cmd+shift+c=text:\x03
 keybind = ctrl+shift+c=text:\x03
 
 # === Shader kursora ===
-# 36 shaderow lezy w ~/.config/ghostty/shaders/ (repo hackr-sh/ghostty-shaders).
+# Instalator dostarcza jeden shader: shaders/hack-jitsu-cursor.glsl.
 # custom-shader dziala W LOCIE: podmien sciezke, zapisz, cmd+shift+, i widzisz efekt.
-# Alternatywy: smear_cursor_blocks.glsl, cursor_lightning.glsl
+# Inne efekty mozna dodac samodzielnie (np. z repo hackr-sh/ghostty-shaders).
 # Animacja chodzi tylko gdy okno ma fokus (<10% CPU), wiec przy autohide panelu
 # nie mieli w tle.
 custom-shader = shaders/hack-jitsu-cursor.glsl

@@ -109,6 +109,16 @@ if [ "$NO_NVIM" -eq 0 ]; then
   install_neovim_config
 fi
 
+# Ghostty loads the macOS application-support config after XDG config.
+# An existing file in that location can silently override this profile.
+for legacy in "$HOME/Library/Application Support/com.mitchellh.ghostty/config.ghostty" \
+              "$HOME/Library/Application Support/com.mitchellh.ghostty/config"; do
+  if [ -f "$legacy" ]; then
+    echo "WARNING: Ghostty may override this profile with: $legacy" >&2
+    echo "         Review that file separately; this installer will not modify it." >&2
+  fi
+done
+
 copy_asset "$ROOT/ghostty/config" "$GHOSTTY_DEST/config" ghostty-config
 copy_asset "$ROOT/ghostty/themes/hack-jitsu" "$GHOSTTY_DEST/themes/hack-jitsu" ghostty-theme
 copy_asset "$ROOT/ghostty/shaders/hack-jitsu-cursor.glsl" "$GHOSTTY_DEST/shaders/hack-jitsu-cursor.glsl" ghostty-shader

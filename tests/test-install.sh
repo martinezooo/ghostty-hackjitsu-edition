@@ -11,6 +11,13 @@ mkdir -p "$HOME"
 bash "$ROOT/install.sh" --dry-run --no-brew >"$TMP/dry-run.log"
 test ! -e "$HOME/.config"
 test ! -e "$HOME/.zshrc"
+# A macOS application-support configuration takes precedence: warn, never overwrite.
+legacy="$HOME/Library/Application Support/com.mitchellh.ghostty"
+mkdir -p "$legacy"
+printf 'font-size = 21\n' > "$legacy/config.ghostty"
+bash "$ROOT/install.sh" --dry-run --no-brew >"$TMP/legacy-plan.log" 2>"$TMP/legacy-warning.log"
+grep -Fq 'WARNING: Ghostty may override this profile' "$TMP/legacy-warning.log"
+grep -qx 'font-size = 21' "$legacy/config.ghostty"
 # Package plans respect the Neovim opt-out.
 bash "$ROOT/install.sh" --dry-run >"$TMP/full-plan.log"
 grep -q 'PLAN brew install neovim' "$TMP/full-plan.log"
@@ -32,6 +39,13 @@ test -f "$HOME/.config/nvim/init.lua"
 test -f "$HOME/.config/nvim/lua/config/lazy.lua"
 test -f "$HOME/.config/nvim/LICENSE"
 test "$(grep -c '# >>> Ghostty Hack-Jitsu Edition >>>' "$HOME/.zshrc")" -eq 1
+ZDOTDIR="$HOME" zsh -ic 'whence -w wave hjhelp hj' >"$TMP/zsh-functions.log" 2>&1
+grep -Fq 'hjhelp: function' "$TMP/zsh-functions.log"
+grep -Fq 'wave: function' "$TMP/zsh-functions.log"
+if command -v navi >/dev/null 2>&1; then
+  ZDOTDIR="$HOME" zsh -ic 'hjhelp --query "Git: status repo" --best-match --print' >"$TMP/hjhelp.log" 2>&1
+  grep -Fq 'git status --short --branch' "$TMP/hjhelp.log"
+fi
 test "$(find "$HOME/.local/state/ghostty-hackjitsu/backups" -name ghostty-config | wc -l | tr -d ' ')" -eq 1
 grep -qx 'old config' "$(find "$HOME/.local/state/ghostty-hackjitsu/backups" -name ghostty-config | head -1)"
 # Re-running must not duplicate shell hooks or write unnecessary backups.
