@@ -4,7 +4,7 @@ hjhelp() {
     print -u2 'hjhelp: navi is not installed (brew install navi)'
     return 127
   fi
-  NAVI_PATH="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty-hackjitsu/cheats" command navi "$@"
+  command navi --path "${XDG_CONFIG_HOME:-$HOME/.config}/ghostty-hackjitsu/cheats" "$@"
 }
 
 # Attach to an existing named Zellij session, or start one.
@@ -14,7 +14,7 @@ if ! typeset -f wave >/dev/null 2>&1; then
       print -u2 'wave: zellij is not installed (brew install zellij)'
       return 127
     fi
-    zellij attach wave 2>/dev/null || zellij -s wave -n wave
+    zellij attach -c wave
   }
 fi
 

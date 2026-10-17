@@ -7,7 +7,6 @@ A portable macOS terminal profile: Ghostty dropdown, Hack-Jitsu theme and waterm
 Homebrew is required (https://brew.sh). Clone this repository on the Mac where you want to use it:
 
 ```bash
-
 git clone https://github.com/martinezooo/ghostty-hackjitsu-edition.git
 cd ghostty-hackjitsu-edition
 ./install.sh --dry-run
