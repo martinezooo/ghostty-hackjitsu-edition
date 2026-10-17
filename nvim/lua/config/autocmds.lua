@@ -1,0 +1,2 @@
+-- LazyVim handles default autocommands.
+-- Add custom editor events here if needed.

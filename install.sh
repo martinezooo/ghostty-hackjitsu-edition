@@ -12,13 +12,15 @@ DRY_RUN=0
 NO_BREW=0
 NO_SHELL=0
 TOOLS=0
+NO_NVIM=0
 
 usage() {
   cat <<'EOF'
-Usage: ./install.sh [--dry-run] [--no-brew] [--no-shell] [--tools]
+Usage: ./install.sh [--dry-run] [--no-brew] [--no-shell] [--no-nvim] [--tools]
   --dry-run   Show intended changes without writing or installing anything
   --no-brew   Install configuration only (skip Homebrew package installation)
   --no-shell  Do not add the optional shell integration to ~/.zshrc
+  --no-nvim   Skip Neovim, LazyVim, and their dependencies
   --tools     Also install nmap, jq, ripgrep, and yq for command-line work
 EOF
 }
@@ -28,6 +30,7 @@ for arg in "$@"; do
     --dry-run) DRY_RUN=1 ;;
     --no-brew) NO_BREW=1 ;;
     --no-shell) NO_SHELL=1 ;;
+    --no-nvim) NO_NVIM=1 ;;
     --tools) TOOLS=1 ;;
     --help|-h) usage; exit 0 ;;
     *) echo "Unknown option: $arg" >&2; usage; exit 2 ;;
@@ -73,15 +76,37 @@ copy_asset() {
   echo "COPY $dest"
 }
 
+install_neovim_config() {
+  local dest="$CONFIG_HOME/nvim"
+  if [ -e "$dest" ] || [ -L "$dest" ]; then
+    echo "SKIP existing Neovim config: $dest (left untouched)"
+    return
+  fi
+  if [ "$DRY_RUN" -eq 1 ]; then
+    echo "PLAN install bundled LazyVim starter -> $dest"
+    return
+  fi
+  mkdir -p "$CONFIG_HOME"
+  cp -R "$ROOT/nvim" "$dest"
+  echo "COPY bundled LazyVim starter -> $dest"
+}
+
 if [ "$NO_BREW" -eq 0 ]; then
   brew_cask ghostty
   brew_cask font-jetbrains-mono-nerd-font
   brew_formula navi
   brew_formula fzf
   brew_formula zellij
+  if [ "$NO_NVIM" -eq 0 ]; then
+    for pkg in neovim lazygit ripgrep fd tree-sitter-cli; do brew_formula "$pkg"; done
+  fi
   if [ "$TOOLS" -eq 1 ]; then
     for pkg in nmap jq ripgrep yq; do brew_formula "$pkg"; done
   fi
+fi
+
+if [ "$NO_NVIM" -eq 0 ]; then
+  install_neovim_config
 fi
 
 copy_asset "$ROOT/ghostty/config" "$GHOSTTY_DEST/config" ghostty-config
@@ -122,4 +147,4 @@ EOF
 fi
 
 echo "Setup complete. Open Ghostty and press Option+Tab to toggle its dropdown."
-echo "Run hjhelp for the standalone pentest, network, admin, and terminal cheats."
+echo "Run hjhelp for cheats, or nvim to bootstrap LazyVim on first launch."

@@ -21,6 +21,20 @@ zellij list-sessions
 # Navi: interaktywne sciagi z tego pakietu
 hjhelp
 
+% terminal, neovim, lazyvim
+
+# Neovim: otworz obecny projekt
+nvim .
+
+# Neovim: sprawdz stan konfiguracji i narzedzi
+nvim +checkhealth
+
+# Neovim: edytuj swoj plik konfiguracji
+nvim "${XDG_CONFIG_HOME:-$HOME/.config}/nvim/init.lua"
+
+# Neovim: interaktywna lista skrotow LazyVim
+printf 'Space ff = find files, Space / = grep, :Lazy = plugins, :LazyHealth = diagnostics\n'
+
 % terminal, git, data
 
 # Git: status repo i obecna galaz

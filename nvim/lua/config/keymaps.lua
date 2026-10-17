@@ -1,0 +1,2 @@
+-- LazyVim handles default keymaps.
+-- Add local mappings here if needed, without private shortcuts.

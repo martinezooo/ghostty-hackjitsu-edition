@@ -1,0 +1,2 @@
+-- LazyVim provides the editor defaults.
+-- Optional custom options can be set here with vim.opt.
