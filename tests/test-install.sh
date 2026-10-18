@@ -38,12 +38,13 @@ test -f "$HOME/.config/ghostty-hackjitsu/shell.zsh"
 test -f "$HOME/.config/nvim/init.lua"
 test -f "$HOME/.config/nvim/lua/config/lazy.lua"
 test -f "$HOME/.config/nvim/LICENSE"
-test "$(grep -c '# >>> Ghostty Hack-Jitsu Edition >>>' "$HOME/.zshrc")" -eq 1
-ZDOTDIR="$HOME" zsh -ic 'whence -w wave hjhelp hj' >"$TMP/zsh-functions.log" 2>&1
+grep -qx '# existing profile' "$HOME/.zshrc"
+test -f "$HOME/.config/ghostty-hackjitsu/zsh/.zshrc"
+ZDOTDIR="$HOME/.config/ghostty-hackjitsu/zsh" zsh -ic 'whence -w wave hjhelp hj' >"$TMP/zsh-functions.log" 2>&1
 grep -Fq 'hjhelp: function' "$TMP/zsh-functions.log"
 grep -Fq 'wave: function' "$TMP/zsh-functions.log"
 if command -v navi >/dev/null 2>&1; then
-  ZDOTDIR="$HOME" zsh -ic 'hjhelp --query "Git: status repo" --best-match --print' >"$TMP/hjhelp.log" 2>&1
+  ZDOTDIR="$HOME/.config/ghostty-hackjitsu/zsh" zsh -ic 'hjhelp --query "Git: status repo" --best-match --print' >"$TMP/hjhelp.log" 2>&1
   grep -Fq 'git status --short --branch' "$TMP/hjhelp.log"
 fi
 test "$(find "$HOME/.local/state/ghostty-hackjitsu/backups" -name ghostty-config | wc -l | tr -d ' ')" -eq 1
@@ -53,7 +54,7 @@ before="$(find "$HOME/.local/state/ghostty-hackjitsu/backups" -type f | wc -l)"
 bash "$ROOT/install.sh" --no-quit --no-brew >"$TMP/reinstall.log"
 after="$(find "$HOME/.local/state/ghostty-hackjitsu/backups" -type f | wc -l)"
 test "$before" -eq "$after"
-test "$(grep -c '# >>> Ghostty Hack-Jitsu Edition >>>' "$HOME/.zshrc")" -eq 1
+grep -qx '# existing profile' "$HOME/.zshrc"
 # Existing symlinks must not be overwritten.
 mv "$HOME/.config/ghostty/config" "$TMP/config-previous"
 ln -s "$TMP/config-previous" "$HOME/.config/ghostty/config"
@@ -75,4 +76,32 @@ HOME="$TMP/skip-home" XDG_CONFIG_HOME="$TMP/skip-home/.config" \
   XDG_STATE_HOME="$TMP/skip-home/.local/state" \
   bash "$ROOT/install.sh" --no-quit --no-brew --no-shell --no-nvim >"$TMP/skip.log"
 test ! -e "$TMP/skip-home/.config/nvim"
+# Upgrade previous release: remove ONLY our old hook, with backup.
+migrate="$TMP/migration-home"
+mkdir -p "$migrate"
+cat > "$migrate/.zshrc" <<'LEGACY'
+# Corporate user profile
+# Personal SSH aliases (must survive)
+tmux attach
+
+# >>> Ghostty Hack-Jitsu Edition >>>
+if [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/ghostty-hackjitsu/shell.zsh" ]; then
+  source "${XDG_CONFIG_HOME:-$HOME/.config}/ghostty-hackjitsu/shell.zsh"
+fi
+# <<< Ghostty Hack-Jitsu Edition <<<
+
+alias work='echo work'
+LEGACY
+HOME="$migrate" XDG_CONFIG_HOME="$migrate/.config" XDG_STATE_HOME="$migrate/.local/state" \
+  bash "$ROOT/install.sh" --no-quit --no-brew --no-shell >"$TMP/migrate.log"
+grep -Fq 'tmux attach' "$migrate/.zshrc"
+grep -Fq "alias work=" "$migrate/.zshrc"
+if grep -Fq '# >>> Ghostty Hack-Jitsu Edition >>>' "$migrate/.zshrc"; then
+  echo "Old Hack-Jitsu integration was not removed" >&2; exit 1
+fi
+grep -Fq 'MIGRATED old Hack-Jitsu ~/.zshrc block' "$TMP/migrate.log"
+find "$migrate/.local/state/ghostty-hackjitsu/backups" -name zshrc-before-hackjitsu-migration | grep -q .
+HOME="$migrate" XDG_CONFIG_HOME="$migrate/.config" XDG_STATE_HOME="$migrate/.local/state" \
+  bash "$ROOT/install.sh" --no-quit --no-brew --no-shell >"$TMP/migrate-again.log"
+grep -Fq 'tmux attach' "$migrate/.zshrc"
 echo "PASS: dry run, install, backup, idempotency, symlink refusal, LazyVim preservation and opt-out"

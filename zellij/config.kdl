@@ -1,0 +1,5 @@
+// Hack-Jitsu: self-contained Zellij defaults, never changes ~/.config/zellij.
+// Using an explicit config prevents the interactive first-run keybinding wizard.
+default_mode "normal"
+show_release_notes false
+simplified_ui true

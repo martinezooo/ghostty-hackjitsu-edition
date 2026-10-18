@@ -16,7 +16,7 @@ cd ghostty-hackjitsu-edition
 
 The installer **skips components that are already installed** (Ghostty app, Nerd Font, or existing Homebrew formulas / CLI executables). Otherwise it uses Homebrew to install Ghostty, JetBrains Mono Nerd Font, Navi, fzf, Zellij, Neovim, lazygit, ripgrep, fd, and tree-sitter-cli. Ghostty is configured to use the actual font family `JetBrainsMono Nerd Font Mono`; using the font's package name as its family name can silently fall back to the bundled font. Existing files are backed up under `~/.local/state/ghostty-hackjitsu/backups/` before replacement. It never replaces the entire shell or SSH configuration.
 
-Optional flags: `--check` (read-only verification built into `install.sh`), `--strict` (warnings fail verification), `--no-brew` (configuration only), `--no-shell` (do not append to `~/.zshrc`), `--no-nvim` (do not install Neovim/LazyVim), `--tools` (nmap, jq, ripgrep, yq), and `--dry-run` (no changes).
+Optional flags: `--check` (read-only verification built into `install.sh`), `--strict` (warnings fail verification), `--no-brew` (configuration only), `--no-shell` (skip optional Zsh plugins; isolated Zsh is still installed), `--no-nvim` (do not install Neovim/LazyVim), `--tools` (nmap, jq, ripgrep, yq), and `--dry-run` (no changes).
 
 **Administrator permissions:** The installer uses regular Homebrew operations for an admin account, including `sudo` if Homebrew needs it. On a non-admin account it disables Homebrew sudo requests and, when Ghostty is missing, targets `~/Applications`; formula installation still requires a writable Homebrew prefix. If you receive `not in the sudoers file` or a prefix-permissions error, your company's IT team must provision the required rights or software. Do **not** run `sudo brew install` or modify the sudoers file. You may explicitly select `--user` or `--system` (the latter requires an admin account). Follow your company's software installation policy.
 
@@ -34,7 +34,21 @@ The installer provides `--no-quit` to preserve active sessions when deliberately
 
 ## Hack-Jitsu shell prompt
 
-Inside **local Ghostty Zsh sessions**, the included shell integration now themes the **prompt** as well as Ghostty itself: red username and prompt arrow, grey hostname, white working directory, and red Git branch (when present). Typing commands is highlighted in cyan, unknown commands in red, command-line options in yellow, and file paths in underlined cyan. Optional history suggestions appear in grey. The installer installs `zsh-syntax-highlighting` and `zsh-autosuggestions` when absent; both are automatically loaded from Homebrew. No private hostnames or usernames are committed, and Terminal.app, SSH and noninteractive shells are unchanged. Open a **new Ghostty shell** (or run `source ~/.config/ghostty-hackjitsu/shell.zsh`) after updating to use these changes.
+Inside **local Ghostty Zsh sessions**, our isolated shell integration now themes the **prompt** as well as Ghostty itself: red username and prompt arrow, grey hostname, white working directory, and red Git branch (when present). Typing commands is highlighted in cyan, unknown commands in red, command-line options in yellow, and file paths in underlined cyan. Optional history suggestions appear in grey. The installer installs `zsh-syntax-highlighting` and `zsh-autosuggestions` when absent; both are automatically loaded from Homebrew. No private hostnames or usernames are committed, and Terminal.app, SSH and noninteractive shells are unchanged. Open a **new Ghostty shell** after updating; its standalone Zsh profile loads everything automatically.
+
+## Isolated Zsh (no personal `~/.zshrc`)
+
+Ghostty launches `/bin/zsh` with `ZDOTDIR` set to `~/.config/ghostty-hackjitsu/zsh`. Its own `.zshrc` loads the bundled `shell.zsh`, not the user's `~/.zshrc`. This eliminates conflicts with personal hooks such as an auto-starting `tmux` that may be missing on the work computer. Terminal.app, login scripts, and remote SSH accounts are unchanged. System-wide `/etc/zsh*` scripts are still read normally.
+
+Upgrades remove **only** the exact old Hack-Jitsu hook we used to append to personal `~/.zshrc`, after backing it up. Other lines are preserved. For a custom-modified hook, the installer warns and leaves it alone. Running the installer again is safe.
+
+**SSH + tmux:** Ghostty's manually loaded shell integration enables `ssh-env`, which uses an `xterm-256color` fallback for SSH hosts that lack Ghostty terminfo; it doesn't globally downgrade Ghostty. If already on a remote server and tmux says 'missing or unsuitable terminal: xterm-ghostty', run `TERM=xterm-256color tmux attach` once and reconnect later. See [Ghostty SSH docs](https://ghostty.org/docs/features/ssh).
+
+## Default Zellij workspace
+
+When you open the **local Ghostty dropdown**, its isolated Zsh profile automatically attaches to the persistent Zellij session named `hackjitsu`. You can use Zellij tabs and panes immediately; no `wave`, tmux or additional terminal setup is required. `wave` remains as an optional compatibility command to reattach after leaving the session. There is **no auto-launch over SSH, inside another Zellij/tmux session, or in noninteractive shells**.
+
+To temporarily disable automatic Zellij startup for your user, run `touch ~/.config/ghostty-hackjitsu/zsh/no-auto-zellij` and open a new Ghostty shell. Remove that file to re-enable the default behavior. Missing Zellij falls back to ordinary Zsh with a warning instead of breaking the terminal.
 
 ## Keyboard and commands
 
@@ -45,12 +59,11 @@ Inside **local Ghostty Zsh sessions**, the included shell integration now themes
 | Cmd + Shift + D | Vertical split |
 | Cmd + Shift + Enter | Horizontal split |
 | Cmd + Shift + , | Reload Ghostty configuration |
-| Cmd + Shift + G | Open `wave` Zellij session |
 | `hjhelp` | Open Navi with the bundled cheats only |
 | `hj` | Print Hack-Jitsu greeting |
-| `wave` | Attach/start a Zellij session |
+| `wave` | Reattach to the default Zellij session after leaving it |
 
-The dropdown uses **40% of the selected display height and 90% of its width**, rather than the previous hard-coded 1728px width that could overflow smaller monitors. Ghostty chooses the display under your mouse (`quick-terminal-screen = mouse`). Option + Tab requires Ghostty to be running and macOS Accessibility permission; conflicts with other global shortcuts are possible.
+The dropdown uses **55% of the selected display height and 55% of its width**, rather than the previous hard-coded 1728px width that overflowed smaller monitors. Ghostty chooses the display under your mouse (`quick-terminal-screen = mouse`). Option + Tab requires Ghostty to be running and macOS Accessibility permission; conflicts with other global shortcuts are possible.
 
 ## Cheats
 
@@ -68,6 +81,6 @@ Quick start: `nvim .` opens the current project, `Space ff` finds files, and `Sp
 
 ## Changes and reinstallation
 
-The installer copies files, not symlinks. Make changes in this repository and rerun `./install.sh --no-brew` to deploy them. It leaves unrelated personal files intact and does not modify `~/.ssh/config`, Git identity or existing Neovim profiles. No background synchronization or automatic package upgrades.
+The installer copies files, not symlinks. Make changes in this repository and rerun `./install.sh --no-brew` to deploy them. It leaves unrelated personal files intact and does not modify `~/.ssh/config`, Git identity or existing Neovim profiles. On upgrade from older versions, the installer backs up `~/.zshrc` and removes only the exact Hack-Jitsu block it previously inserted. No background synchronization or automatic package upgrades.
 
-Run `bash tests/test-install.sh`, `bash tests/test-check.sh` and `bash tests/test-packages.sh`, `bash tests/test-shell.sh`, and `bash tests/test-launch.sh` to verify dry runs, backups, package detection, embedded diagnostics and idempotency. Run `bash tests/test-ghostty.sh` on a Mac with Ghostty installed to validate the isolated Ghostty configuration, shortcuts and effective font. Run `bash tests/test-nvim.sh` after dependencies are installed to download plugins in a temporary directory and detect LazyVim errors that might be hidden behind a successful Neovim exit code. That optional test requires GitHub access, skips if `nvim` or `tree-sitter` is unavailable, and leaves existing Neovim data untouched. Ghostty may also load `~/Library/Application Support/com.mitchellh.ghostty/config.ghostty` or `config` *after* the XDG configuration, so the installer warns about either file but deliberately does not alter it. The source tree is also checked for personal identifiers. No installation is performed on your current Mac by creating this repository.
+Run `bash tests/test-install.sh`, `bash tests/test-check.sh` and `bash tests/test-packages.sh`, `bash tests/test-shell.sh`, `bash tests/test-isolated-zsh.sh`, and `bash tests/test-launch.sh` to verify dry runs, backups, package detection, embedded diagnostics and idempotency. Run `bash tests/test-ghostty.sh` on a Mac with Ghostty installed to validate the isolated Ghostty configuration, shortcuts and effective font. Run `bash tests/test-nvim.sh` after dependencies are installed to download plugins in a temporary directory and detect LazyVim errors that might be hidden behind a successful Neovim exit code. That optional test requires GitHub access, skips if `nvim` or `tree-sitter` is unavailable, and leaves existing Neovim data untouched. Ghostty may also load `~/Library/Application Support/com.mitchellh.ghostty/config.ghostty` or `config` *after* the XDG configuration, so the installer warns about either file but deliberately does not alter it. The source tree is also checked for personal identifiers. No installation is performed on your current Mac by creating this repository.

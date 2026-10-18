@@ -28,7 +28,8 @@ case "$1" in
       'window-save-state = never' \
       'theme = hack-jitsu' \
       'font-family = JetBrainsMono Nerd Font Mono' \
-      'quick-terminal-size = 40%,90%' \
+      'quick-terminal-size = 55%,55%' \
+      'command = /bin/sh -c ZDOTDIR=somewhere' \
       'custom-shader = shaders/hack-jitsu-cursor.glsl' \
       'background-image = hack-jitsu-watermark.png'
     ;;

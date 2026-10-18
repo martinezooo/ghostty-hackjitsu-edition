@@ -28,7 +28,7 @@ Usage: ./install.sh [--dry-run] [--check] [--no-quit] [--user] [--system] [--no-
   --system    Force system-wide casks (needs administrator rights)
   --strict    Treat verification warnings as errors
   --no-brew   Install configuration only (skip Homebrew package installation)
-  --no-shell  Do not add the optional shell integration to ~/.zshrc
+  --no-shell  Skip optional Zsh plugins (isolated Ghostty shell still installed)
   --no-nvim   Skip Neovim, LazyVim, and their dependencies
   --tools     Also install nmap, jq, ripgrep, and yq for command-line work
 EOF
@@ -114,7 +114,8 @@ if [ -n "$GHOSTTY" ] && [ -x "$GHOSTTY" ]; then
      grep -Fq 'window-save-state = never' <<< "$effective" &&
      grep -Fq 'theme = hack-jitsu' <<< "$effective" &&
      grep -Fq 'font-family = JetBrainsMono Nerd Font Mono' <<< "$effective" &&
-     grep -Fq 'quick-terminal-size = 40%,90%' <<< "$effective" &&
+     grep -Fq 'quick-terminal-size = 55%,55%' <<< "$effective" &&
+     grep -Fq 'ZDOTDIR=' <<< "$effective" &&
      grep -Fq 'hack-jitsu-cursor.glsl' <<< "$effective" &&
      grep -Fq 'hack-jitsu-watermark.png' <<< "$effective"; then
     check_pass "Ghostty headless mode, theme, font, dropdown, shader and watermark"
@@ -152,7 +153,7 @@ done
 for legacy in "$HOME/Library/Application Support/com.mitchellh.ghostty/config" \
               "$HOME/Library/Application Support/com.mitchellh.ghostty/config.ghostty"; do
   if [ -f "$legacy" ]; then
-    check_warn "Additional Ghostty config exists; review potential overrides: $legacy"
+    check_warn "Additional Ghostty config exists and may override this profile: $legacy"
   fi
 done
 
@@ -160,6 +161,7 @@ check_formula "Navi cheats UI" navi navi
 check_formula "fzf selector" fzf fzf
 check_formula "Zellij multiplexer" zellij zellij
 check_file_exists "$HJ_CONFIG/shell.zsh" "Shell helpers installed"
+check_file_exists "$HJ_CONFIG/zellij/config.kdl" "Isolated Zellij config installed"
 if [ -f "$HJ_CONFIG/shell.zsh" ] && check_available zsh &&
    zsh -n "$HJ_CONFIG/shell.zsh" >/dev/null 2>&1; then
   check_pass "Shell helpers parse as zsh"
@@ -197,10 +199,18 @@ if [ "$CHECK_SHELL" -eq 1 ]; then
       fi
     fi
   done
+  check_file_exists "$HJ_CONFIG/zsh/.zshrc" "Isolated Ghostty ZDOTDIR/.zshrc"
+  if [ -f "$HJ_CONFIG/zsh/.zshrc" ] && check_available zsh; then
+    if zsh -n "$HJ_CONFIG/zsh/.zshrc" >/dev/null 2>&1; then
+      check_pass "Dedicated Ghostty Zsh startup valid"
+    else
+      check_fail "Dedicated Ghostty Zsh startup invalid"
+    fi
+  fi
   if [ -f "$HOME/.zshrc" ] && grep -Fq '# >>> Ghostty Hack-Jitsu Edition >>>' "$HOME/.zshrc"; then
-    check_pass "Shell integration present in ~/.zshrc"
+    check_fail "Obsolete Hack-Jitsu block remains in ~/.zshrc; installer must migrate it"
   else
-    check_fail "Shell integration missing in ~/.zshrc (review README)"
+    check_pass "No Hack-Jitsu modification in personal ~/.zshrc"
   fi
 else
   check_pass "Shell integration intentionally skipped"
@@ -460,35 +470,47 @@ copy_asset "$ROOT/ghostty/themes/hack-jitsu" "$GHOSTTY_DEST/themes/hack-jitsu" g
 copy_asset "$ROOT/ghostty/shaders/hack-jitsu-cursor.glsl" "$GHOSTTY_DEST/shaders/hack-jitsu-cursor.glsl" ghostty-shader
 copy_asset "$ROOT/ghostty/hack-jitsu-watermark.png" "$GHOSTTY_DEST/hack-jitsu-watermark.png" ghostty-watermark
 copy_asset "$ROOT/shell/hj.zsh" "$HJ_DEST/shell.zsh" hj-shell
+copy_asset "$ROOT/zellij/config.kdl" "$HJ_DEST/zellij/config.kdl" zellij-config
 
 for file in "$ROOT"/cheats/*.cheat; do
   [ -f "$file" ] || continue
   copy_asset "$file" "$HJ_DEST/cheats/$(basename "$file")" "cheat-$(basename "$file")"
 done
 
-if [ "$NO_SHELL" -eq 0 ]; then
-  RC="$HOME/.zshrc"
-  if [ -L "$RC" ]; then
-    echo "Skipping shell integration: ~/.zshrc is a symlink. Add the snippet from README manually." >&2
-  elif [ -e "$RC" ] && grep -Fq '# >>> Ghostty Hack-Jitsu Edition >>>' "$RC"; then
-    echo "OK shell integration already present"
-  elif [ "$DRY_RUN" -eq 1 ]; then
-    echo "PLAN append source stanza to $RC (backup first)"
-  else
-    if [ -f "$RC" ]; then
-      mkdir -p "$BACKUP"
-      cp -p "$RC" "$BACKUP/zshrc"
-      echo "BACKUP $RC -> $BACKUP/zshrc"
-    fi
-    cat >> "$RC" <<'EOF'
+# Dedicated Ghostty Zsh is always provisioned even with --no-shell.
+copy_asset "$ROOT/shell/isolated.zshrc" "$HJ_DEST/zsh/.zshrc" isolated-zshrc
 
+# Upgrade from earlier releases: undo ONLY the exact fragment we previously
+# appended to ~/.zshrc. Back it up. Leave all unrelated lines unchanged.
+RC="$HOME/.zshrc"
+if [ -f "$RC" ] && [ ! -L "$RC" ] &&
+   grep -Fq '# >>> Ghostty Hack-Jitsu Edition >>>' "$RC"; then
+  previous_block=$(cat <<'LEGACY'
 # >>> Ghostty Hack-Jitsu Edition >>>
 if [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/ghostty-hackjitsu/shell.zsh" ]; then
   source "${XDG_CONFIG_HOME:-$HOME/.config}/ghostty-hackjitsu/shell.zsh"
 fi
 # <<< Ghostty Hack-Jitsu Edition <<<
-EOF
-    echo "SHELL integration added to $RC"
+LEGACY
+)
+  if [[ $(cat "$RC") == *"$previous_block"* ]]; then
+    if [ "$DRY_RUN" -eq 1 ]; then
+      echo "PLAN remove old Hack-Jitsu block from ~/.zshrc (after backing up)"
+    else
+      mkdir -p "$BACKUP"
+      cp -p "$RC" "$BACKUP/zshrc-before-hackjitsu-migration"
+      temp_rc="$(mktemp "${RC}.hj.XXXXXX")"
+      awk '
+        /^# >>> Ghostty Hack-Jitsu Edition >>>$/ { skip=1; next }
+        /^# <<< Ghostty Hack-Jitsu Edition <<<$/{ skip=0; next }
+        !skip { print }
+      ' "$RC" > "$temp_rc"
+      chmod "$(stat -f %Lp "$RC")" "$temp_rc" 2>/dev/null || chmod 600 "$temp_rc"
+      mv "$temp_rc" "$RC"
+      echo "MIGRATED old Hack-Jitsu ~/.zshrc block; original backed up"
+    fi
+  else
+    echo "WARNING: Custom Hack-Jitsu block in ~/.zshrc: leaving untouched. Remove manually." >&2
   fi
 fi
 
@@ -526,7 +548,8 @@ echo
 echo " IN YOUR TERMINAL"
 echo "   hj       Show Hack-Jitsu quick-start guide"
 echo "   hjhelp   Search interactive pentest/admin/network cheats"
-echo "   wave     Start or attach to Zellij session"
+echo "   Zellij   Starts automatically inside the dropdown (session: hackjitsu)"
+echo "   wave     Reattach to hackjitsu session after leaving it"
 if [ "$NO_NVIM" -eq 0 ]; then
   echo "   nvim     Start LazyVim (first start downloads plugins)"
 else
@@ -538,6 +561,8 @@ echo "   ./install.sh --check    Read-only validation"
 echo "   ./install.sh --dry-run  Preview changes"
 echo "   Re-run ./install.sh safely: existing packages are skipped."
 echo "   Installed but not running: expected after setup."
+echo "   Isolated Zsh: your existing ~/.zshrc is not loaded in Ghostty."
+echo "   Disable auto Zellij: touch ~/.config/ghostty-hackjitsu/zsh/no-auto-zellij"
 echo "============================================================"
 
 if [ "$verify_status" -ne 0 ]; then

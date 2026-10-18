@@ -1,4 +1,4 @@
-# Optional shell helpers, sourced by ~/.zshrc after install.
+# Self-contained shell helpers sourced ONLY by the Hack-Jitsu ZDOTDIR/.zshrc.
 hjhelp() {
   if ! command -v navi >/dev/null 2>&1; then
     print -u2 'hjhelp: navi is not installed (brew install navi)'
@@ -14,7 +14,11 @@ if ! typeset -f wave >/dev/null 2>&1; then
       print -u2 'wave: zellij is not installed (brew install zellij)'
       return 127
     fi
-    zellij attach -c wave
+    if [[ -n "${ZELLIJ:-}" ]]; then
+      print "Already inside a Zellij session"
+      return 0
+    fi
+    zellij attach -c hackjitsu
   }
 fi
 
@@ -24,7 +28,8 @@ hj() {
   printf '  Option + Tab       Toggle the dropdown terminal\n'
   printf '  hj                 Show this guide again\n'
   printf '  hjhelp             Interactive pentest, network, admin and terminal cheats\n'
-  printf '  wave               Open the Zellij session manager\n'
+  printf '  Zellij             Starts automatically in Ghostty (session: hackjitsu)
+  wave               Reattach to hackjitsu after leaving Zellij\n'
   printf '  nvim               Start Neovim + LazyVim\n'
   printf '\n'
   printf '  Troubleshooting: ./install.sh --check  (from the cloned repository)\n'

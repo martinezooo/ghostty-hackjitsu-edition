@@ -6,7 +6,7 @@ import sys
 
 root = pathlib.Path(__file__).resolve().parent.parent
 paths = [root / "README.md", root / "install.sh"]
-for folder in ("ghostty", "cheats", "shell", "nvim"):
+for folder in ("ghostty", "cheats", "shell", "nvim", "zellij"):
     paths.extend((root / folder).rglob("*"))
 checks = {
     "private account or school marker": r"(?i)\b(?:usos|uam|bichon|myhackedworld)\b",
