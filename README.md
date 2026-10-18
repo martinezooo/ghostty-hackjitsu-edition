@@ -22,7 +22,7 @@ Optional flags: `--check` (read-only verification built into `install.sh`), `--s
 
 ## Post-install verification
 
-A built-in diagnostic runs automatically and displays colored `[PASS]` (green), `[WARN]` (yellow) and `[FAIL]` (red) results. Installation progress is colored too: `COPY` green, `SKIP` yellow, `INSTALL` blue. Colors appear in interactive terminals; redirected logs stay plain. Use `NO_COLOR=1` or `HJ_INSTALL_COLOR=never` to suppress ANSI; `HJ_INSTALL_COLOR=always` forces ANSI for tests. Run `./install.sh --check` at any time to verify the machine **without changing anything**; it returns exit code 1 for missing required components. Use `./install.sh --check --strict` to also fail on warnings. The first Neovim startup downloads LazyVim plugins, so an initial warning about uninitialized plugins is expected until you start `nvim` once.
+A built-in diagnostic runs automatically and displays colored `[PASS]` (green), `[WARN]` (yellow) and `[FAIL]` (red) results. Installation progress is colored too: `COPY` green, `SKIP` yellow, `INSTALL` blue. Colors appear in interactive terminals; redirected logs stay plain. Use `NO_COLOR=1` or `HJ_INSTALL_COLOR=never` to suppress ANSI; `HJ_INSTALL_COLOR=always` forces ANSI for tests. Run `./install.sh --check` at any time to verify the machine **without changing anything**; it returns exit code 1 for missing required components. Use `./install.sh --check --strict` to also fail on warnings. The installer prepares LazyVim in a headless session, **waits until Tree-sitter parsers are compiled**, and checks that the Lua parser loads. Simply downloading plugin folders no longer counts as successful initialization. A warning now points to the private diagnostics file at `~/.local/state/ghostty-hackjitsu/nvim-bootstrap.log`; missing compilers and network failures are displayed rather than silently ignored.
 
 ## Automatic restart and first launch
 
@@ -109,7 +109,7 @@ This is enabled for **new and existing Hack-Jitsu-managed LazyVim configs**. The
 
 **Neovim is no longer wrapped in `zellij edit --in-place`.** Typing `nvim filename` launches ordinary Neovim from the active shell. After `Esc`, `:q!`, Enter, the same shell prompt returns; quitting Neovim must not close the Zellij pane. New pane: **Ctrl+P**, then **N**. New tab: **Ctrl+T**, then **N**. Use `wave <session-name>` outside Zellij only when you intentionally want to resume an old session with its files/panes.
 
-Fresh Hack-Jitsu installs initialize LazyVim plugins *during installation* so the first log you open does not unexpectedly begin a large download. This needs internet access and may take several minutes. Use `--no-lazy-sync` to defer synchronization; if it fails, retry inside Neovim using `:Lazy sync`. Third-party Neovim configurations are never modified.
+Fresh Hack-Jitsu installs initialize LazyVim plugins **and compile Tree-sitter language parsers** during installation, so opening the first log does not unexpectedly initiate compilation. This requires `tree-sitter-cli >=0.26.1`, a working C compiler, and internet on first setup. The installer runs an actual parser-load test, reports failures, and keeps the full log in `~/.local/state/ghostty-hackjitsu/nvim-bootstrap.log` (mode 0600). Use `--no-lazy-sync` to defer this work, or retry with `./install.sh --no-quit` if your plugins were partially installed. The `--check` command is read-only and verifies toolchain version and presence of the compiled Lua parser. Third-party Neovim configurations are never modified.
 
 ## Hack-Jitsu shell prompt
 

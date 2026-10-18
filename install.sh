@@ -20,6 +20,7 @@ STRICT_CHECK=0
 USER_INSTALL=-1
 QUIT_GHOSTTY=1
 RELAUNCH_GHOSTTY=1
+NVIM_BOOTSTRAP_ERROR=0
 
 # Color is enabled only for an interactive terminal (or an explicit test
 # override). Redirected logs and CI output stay plain and grep-friendly.
@@ -275,6 +276,18 @@ if [ "$CHECK_NVIM" -eq 1 ]; then
   check_formula "ripgrep" rg ripgrep
   check_formula "fd" fd fd
   check_formula "Tree-sitter CLI" tree-sitter tree-sitter-cli
+  # The CLI needs to be recent enough to support parser compilation.
+  if check_available tree-sitter; then
+    ts_version="$(tree-sitter --version 2>/dev/null || true)"
+    if [[ "$ts_version" =~ ^tree-sitter[[:space:]]+([0-9]+)\.([0-9]+)\.([0-9]+) ]] &&
+       { (( 10#${BASH_REMATCH[1]} > 0 )) ||
+         (( 10#${BASH_REMATCH[2]} > 26 )) ||
+         (( 10#${BASH_REMATCH[2]} == 26 && 10#${BASH_REMATCH[3]} >= 1 )); }; then
+      check_pass "Tree-sitter CLI meets parser minimum >= 0.26.1"
+    else
+      check_fail "Tree-sitter CLI version unknown/too old: $ts_version (need >= 0.26.1)"
+    fi
+  fi
   if check_available nvim; then
     if nvim --headless -u NONE -c 'lua if vim.fn.has("nvim-0.11.2") == 0 then vim.cmd("cq") end' -c 'qa!' >/dev/null 2>&1; then
       check_pass "Neovim version meets LazyVim minimum (0.11.2)"
@@ -285,9 +298,17 @@ if [ "$CHECK_NVIM" -eq 1 ]; then
   check_file_exists "$NVIM_CONFIG/init.lua" "Neovim entry point"
   check_file_exists "$NVIM_CONFIG/lua/config/lazy.lua" "LazyVim bootstrap config"
   if [ -d "$DATA_HOME/nvim/lazy/LazyVim" ]; then
-    check_pass "LazyVim plugins initialized"
+    check_pass "LazyVim plugin sources downloaded"
+    if [ -f "$DATA_HOME/nvim/site/parser/lua.so" ]; then
+      check_pass "Lua Tree-sitter parser compiled"
+    else
+      check_warn "Tree-sitter parsers not ready; run ./install.sh to finish compilation"
+    fi
   else
-    check_warn "LazyVim plugins not initialized yet: run nvim once, then ./install.sh --check"
+    check_warn "LazyVim not downloaded yet; run ./install.sh to prepare plugins"
+  fi
+  if [ "$NVIM_BOOTSTRAP_ERROR" -eq 1 ]; then
+    check_warn "Neovim parser bootstrap incomplete; see nvim-bootstrap.log for details"
   fi
   if ! check_available cc; then check_warn "C compiler missing; install Xcode Command Line Tools if needed"; fi
   if ! check_available curl; then check_warn "curl missing; required for LazyVim bootstrap"; fi
@@ -513,6 +534,7 @@ install_neovim_config() {
       fi
     fi
     copy_asset "$ROOT/nvim/lua/config/ansi.lua" "$dest/lua/config/ansi.lua" nvim-ansi
+    copy_asset "$ROOT/nvim/lua/config/bootstrap.lua" "$dest/lua/config/bootstrap.lua" nvim-bootstrap
     return
   fi
   if [ "$DRY_RUN" -eq 1 ]; then
@@ -523,44 +545,68 @@ install_neovim_config() {
   cp -R "$ROOT/nvim" "$dest"
   echo "COPY bundled LazyVim starter -> $dest"
 }
-# Complete the initial Neovim/LazyVim download during installation,
-# not unexpectedly when the first real log file is opened in the editor.
+# Plugin downloads alone are NOT proof that parsers can be compiled.
+# Verify parser installation synchronously before declaring success.
 prepare_lazyvim() {
   local nvim_config="$CONFIG_HOME/nvim/init.lua"
-  local lazy_dir="${XDG_DATA_HOME:-$HOME/.local/share}/nvim/lazy/LazyVim"
+  local data="${XDG_DATA_HOME:-$HOME/.local/share}/nvim"
+  local lazy_dir="$data/lazy/LazyVim"
+  local bootstrap="$CONFIG_HOME/nvim/lua/config/bootstrap.lua"
   if [ "$NO_NVIM" -eq 1 ] || [ "$NO_BREW" -eq 1 ] ||
      [ "$SKIP_LAZY_SYNC" -eq 1 ] || [ "$DRY_RUN" -eq 1 ]; then
     return 0
   fi
-  # A preexisting or unrelated nvim profile is never bootstrapped by us.
+  # Never bootstrap third-party/private Neovim profiles.
   if [ ! -f "$nvim_config" ] ||
      ! grep -Fq 'Portable LazyVim configuration for Ghostty Hack-Jitsu Edition' "$nvim_config"; then
     return 0
   fi
-  if [ -d "$lazy_dir" ]; then
-    echo "SKIP LazyVim: plugins already initialized"
+  if ! command -v nvim >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1 ||
+     ! command -v tree-sitter >/dev/null 2>&1 || ! command -v cc >/dev/null 2>&1; then
+    status WARN "Cannot prepare LazyVim parsers: requires nvim, git, tree-sitter-cli >=0.26.1 and cc."
+    status WARN "Fix dependencies, then rerun ./install.sh or :TSUpdate inside Neovim."
+    NVIM_BOOTSTRAP_ERROR=1
     return 0
   fi
-  if ! command -v nvim >/dev/null 2>&1 ||
-     ! command -v git >/dev/null 2>&1; then
-    echo "WARNING: Neovim/git unavailable; first nvim start may install LazyVim plugins." >&2
+  if [ ! -r "$bootstrap" ]; then
+    status WARN "Managed parser validation script missing; setup cannot be marked successful."
+    NVIM_BOOTSTRAP_ERROR=1
     return 0
   fi
-  echo "Preparing LazyVim plugins now (first setup may take a few minutes)..."
-  local log
-  log="$(mktemp)"
-  if nvim --headless '+Lazy! sync' '+qa!' >"$log" 2>&1 &&
-     [ -d "$lazy_dir" ] &&
-     ! grep -Eq 'Error detected|Failed to run .config.|E5108|FATAL' "$log"; then
-    echo "OK LazyVim plugins initialized; opening a file should not trigger a first-time sync."
+  status INFO "Validating LazyVim parser compilation (may take several minutes on first install)..."
+  # Retain a private diagnostic log so compilation failures can be inspected.
+  local log="${STATE_HOME}/ghostty-hackjitsu/nvim-bootstrap.log"
+  ( umask 077; mkdir -p -m 700 "$(dirname "$log")" )
+  if [ -L "$log" ]; then
+    status WARN "Refusing symlinked Neovim diagnostic log: $log"
+    NVIM_BOOTSTRAP_ERROR=1
+    return 0
+  fi
+  ( umask 077; : > "$log" )
+  chmod 600 "$log"
+  # Freshly synced plugins need a NEW Neovim process for runtimepath loading.
+  # First download/exit, then in a separate process compile and verify parsers.
+  if [ ! -d "$lazy_dir" ] || [ ! -d "$data/lazy/nvim-treesitter" ]; then
+    status INFO "First-run Neovim plugin download (separate headless session)..."
+    if ! nvim --headless '+Lazy! sync' '+qa!' >"$log" 2>&1; then
+      status WARN "LazyVim download/sync failed; see $log"
+      tail -n 18 "$log" >&2
+      NVIM_BOOTSTRAP_ERROR=1
+      return 0
+    fi
+  fi
+  if nvim --headless "+luafile $bootstrap" >>"$log" 2>&1 &&
+     grep -Fq 'HJ_NVIM_BOOTSTRAP_READY:' "$log" &&
+     ! grep -Eq 'HJ_NVIM_BOOTSTRAP_FAILED|Failed to compile parser|Error during "tree-sitter build"|Error detected|E5108|FATAL' "$log"; then
+    status PASS "LazyVim parsers compiled and validated (including Lua)."
   else
-    echo "WARNING: LazyVim plugin setup failed. Review the last output below:" >&2
-    tail -n 12 "$log" >&2
-    echo "         Try again later from Neovim: :Lazy sync" >&2
+    status WARN "LazyVim is not fully ready. A parser or plugin failed to compile:"
+    tail -n 18 "$log" >&2
+    status WARN "Full diagnostic log: $log"
+    status WARN "Run ./install.sh again after fixing the error, or :TSUpdate inside Neovim."
+    NVIM_BOOTSTRAP_ERROR=1
   fi
-  rm -f "$log"
 }
-
 if [ "$NO_BREW" -eq 0 ]; then
   brew_cask ghostty
   brew_cask font-jetbrains-mono-nerd-font
