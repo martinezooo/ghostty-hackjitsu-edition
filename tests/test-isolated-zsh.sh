@@ -10,11 +10,19 @@ export XDG_CONFIG_HOME="$HOME/.config"
 export XDG_STATE_HOME="$HOME/.local/state"
 export HJ_TEST_BIN="$TMP/bin"
 export HJ_TEST_ZELLIJ_LOG="$TMP/zellij.log"
+export HJ_TEST_ZELLIJ_LIVE="$TMP/zellij-sessions"
 mkdir -p "$HOME" "$HJ_TEST_BIN"
 printf '%s\n' 'echo PERSONAL_ZSHRC_INCORRECTLY_LOADED' 'tmux attach' > "$HOME/.zshrc"
 cat > "$HJ_TEST_BIN/zellij" <<'SH'
 #!/bin/sh
+if [ "$1" = list-sessions ] && [ "$2" = -s ]; then
+  [ ! -f "$HJ_TEST_ZELLIJ_LIVE" ] || cat "$HJ_TEST_ZELLIJ_LIVE"
+  exit 0
+fi
 printf '%s\n' "$*" >> "$HJ_TEST_ZELLIJ_LOG"
+if [ "$1" = --session ]; then
+  printf '%s\n' "$2" >> "$HJ_TEST_ZELLIJ_LIVE"
+fi
 if [ "$1" = --config ] && [ "$3" = setup ] && [ "$4" = --check ]; then
   echo '[CONFIG FILE]: Well defined.'
 fi
@@ -65,7 +73,7 @@ def launch(case,expected,changes=None,marker=False):
     calls=log.read_text().strip().splitlines() if log.exists() else []
     assert len(calls)==expected,(case,calls,output[-1000:])
     if calls:
-        assert calls[0].startswith('--session hj-'),(case,calls)
+        assert calls[0].startswith('--session '+subprocess.check_output(['id','-un'],text=True).strip()),(case,calls)
         assert len(calls[0].split(' ',1)[1]) <= 16,('socket-path risk',calls)
         assert 'attach' not in calls[0], (case,calls)
     print('PASS ZDOTDIR case',case,'Zellij calls:',len(calls))
@@ -74,6 +82,8 @@ first=log.read_text().strip()
 launch('normal_again',1)
 second=log.read_text().strip()
 assert first!=second,('Zellij sessions must have unique names',first,second)
+assert second==first+'-2',(first,second)
+print('PASS: readable username and numbered collision-safe fallback')
 print('PASS: each Ghostty startup gets a fresh session instead of old editor')
 launch('nested_zellij',0,{'ZELLIJ':'1'})
 launch('nested_tmux',0,{'TMUX':'/tmp/tmux'})

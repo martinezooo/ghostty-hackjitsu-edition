@@ -1,5 +1,8 @@
 // Hack-Jitsu: self-contained Zellij defaults, never changes ~/.config/zellij.
 // Using an explicit config prevents the interactive first-run keybinding wizard.
+// No hard-coded session_name here. Isolated Zsh chooses a unique readable
+// username-based name (username-2 if occupied) for each NEW session.
+// Ghostty's title setting does not change the Zellij session label.
 default_mode "normal"
 show_release_notes false
 simplified_ui true

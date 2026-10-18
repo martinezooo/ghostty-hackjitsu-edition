@@ -80,13 +80,23 @@ if [[ -o interactive && -t 0 && -t 1 ]] &&
    [[ "${HJ_AUTO_ZELLIJ:-1}" != 0 ]] &&
    [[ ! -e "${ZDOTDIR:-$HOME}/no-auto-zellij" ]]; then
   if (( $+commands[zellij] )); then
-    # Keep name SHORT: macOS has a ~104-byte UNIX socket path limit and
-    # Zellij appends the name to the already-long macOS TMPDIR path.
-    # This shell's PID is unique among currently running terminals.
-    # A full close quits this disposable Zellij session (on_force_close).
-    _hj_session="hj-$$"
+    # Zellij displays its session name in the tab bar/window title.
+    # A raw PID such as hj-41648 is not a useful name for a person.
+    # Prefer the macOS username, and never auto-attach an old editor session.
+    _hj_user="$(id -un)"
+    _hj_user="${_hj_user//[^[:alnum:]_-]/_}"
+    [[ -n "$_hj_user" ]] || _hj_user="terminal"
+    _hj_session="$_hj_user"
+    _hj_sessions="$(zellij list-sessions -s 2>/dev/null || true)"
+    _hj_suffix=2
+    # Only create NEW sessions, using human-readable numeric suffixes if
+    # another session already owns this name. No resurrect/auto-attach.
+    while print -r -- "$_hj_sessions" | command grep -Fxq -- "$_hj_session"; do
+      _hj_session="${_hj_user}-${_hj_suffix}"
+      (( _hj_suffix++ ))
+    done
     zellij --session "$_hj_session"
-    unset _hj_session
+    unset _hj_session _hj_user _hj_sessions _hj_suffix
   else
     print -u2 'Hack-Jitsu: Zellij not installed; opening standard shell.'
   fi
