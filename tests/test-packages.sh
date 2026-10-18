@@ -58,9 +58,14 @@ cat > "$TMP/bin/navi" <<'EOF'
 #!/bin/sh
 echo 'git status --short --branch'
 EOF
-for name in fzf zellij; do
-  printf '#!/bin/sh\nexit 0\n' > "$TMP/bin/$name"
-done
+printf '#!/bin/sh\nexit 0\n' > "$TMP/bin/fzf"
+cat > "$TMP/bin/zellij" <<'MOCK_ZELLIJ'
+#!/bin/sh
+if [ "$1" = --config ] && [ "$3" = setup ] && [ "$4" = --check ]; then
+  echo '[CONFIG FILE]: Well defined.'
+fi
+exit 0
+MOCK_ZELLIJ
 chmod +x "$TMP/bin"/*
 export HJ_TEST_PREFIX="$TMP/prefix"
 export HJ_TEST_BIN="$TMP/bin"

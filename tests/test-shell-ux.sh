@@ -26,6 +26,9 @@ STUB
 cat > "$TMP/bin/zellij" <<'STUB'
 #!/bin/sh
 printf '%s\n' "$*" >> "$HJ_TEST_EDIT_LOG"
+if [ "$1" = --config ] && [ "$3" = setup ] && [ "$4" = --check ]; then
+  echo '[CONFIG FILE]: Well defined.'
+fi
 STUB
 chmod +x "$TMP/bin"/*
 cat > "$TMP/prefix/opt/fzf-tab/share/fzf-tab/fzf-tab.zsh" <<'STUB'
@@ -66,6 +69,9 @@ cat "$TMP/local.log" | grep -Fq 'logo.txt'
 cat > "$TMP/bin/nvim" <<'STUB'
 #!/bin/sh
 printf '%s\n' "$*" >> "$HJ_TEST_EDIT_LOG"
+if [ "$1" = --config ] && [ "$3" = setup ] && [ "$4" = --check ]; then
+  echo '[CONFIG FILE]: Well defined.'
+fi
 STUB
 chmod +x "$TMP/bin/nvim"
 ZELLIJ=1 TERM_PROGRAM=ghostty TERM=xterm-ghostty HJ_AUTO_ZELLIJ=0 zsh -ic '

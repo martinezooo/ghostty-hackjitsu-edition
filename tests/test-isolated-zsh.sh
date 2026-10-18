@@ -15,6 +15,9 @@ printf '%s\n' 'echo PERSONAL_ZSHRC_INCORRECTLY_LOADED' 'tmux attach' > "$HOME/.z
 cat > "$HJ_TEST_BIN/zellij" <<'SH'
 #!/bin/sh
 printf '%s\n' "$*" >> "$HJ_TEST_ZELLIJ_LOG"
+if [ "$1" = --config ] && [ "$3" = setup ] && [ "$4" = --check ]; then
+  echo '[CONFIG FILE]: Well defined.'
+fi
 exit 0
 SH
 chmod +x "$HJ_TEST_BIN/zellij"

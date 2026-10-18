@@ -30,11 +30,17 @@ mkdir -p "$HOME/.config/ghostty"
 printf 'old config\n' > "$HOME/.config/ghostty/config"
 printf '# existing profile\n' > "$HOME/.zshrc"
 bash "$ROOT/install.sh" --no-quit --no-brew >"$TMP/install.log"
-cmp -s "$ROOT/ghostty/config" "$HOME/.config/ghostty/config"
+# The portable base is rendered with local username and Mac Option mapping.
+grep -Fq 'macos-option-as-alt = left' "$HOME/.config/ghostty/config"
+grep -Fq "title = $(id -un)" "$HOME/.config/ghostty/config"
+test -f "$HOME/.config/ghostty-hackjitsu/ghostty-template.conf"
+test -f "$HOME/.config/ghostty-hackjitsu/zellij/template.kdl"
+test -f "$HOME/.config/ghostty-hackjitsu/ui-setup.sh"
 test -f "$HOME/.config/ghostty/hack-jitsu-watermark.png"
 test -f "$HOME/.config/ghostty-hackjitsu/cheats/pentest.cheat"
 test -f "$HOME/.config/ghostty-hackjitsu/cheats/network.cheat"
 test -f "$HOME/.config/ghostty-hackjitsu/shell.zsh"
+grep -Fqx 'default_layout "default"' "$HOME/.config/ghostty-hackjitsu/zellij/config.kdl"
 test -f "$HOME/.config/nvim/init.lua"
 test -f "$HOME/.config/nvim/lua/config/lazy.lua"
 test -f "$HOME/.config/nvim/LICENSE"
@@ -49,8 +55,8 @@ if command -v navi >/dev/null 2>&1; then
   ZDOTDIR="$HOME/.config/ghostty-hackjitsu/zsh" zsh -ic 'hjhelp --query "Git: status repo" --best-match --print' >"$TMP/hjhelp.log" 2>&1
   grep -Fq 'git status --short --branch' "$TMP/hjhelp.log"
 fi
-test "$(find "$HOME/.local/state/ghostty-hackjitsu/backups" -name ghostty-config | wc -l | tr -d ' ')" -eq 1
-grep -qx 'old config' "$(find "$HOME/.local/state/ghostty-hackjitsu/backups" -name ghostty-config | head -1)"
+test "$(find "$HOME/.local/state/ghostty-hackjitsu/backups" -name ghostty-ui | wc -l | tr -d ' ')" -eq 1
+grep -qx 'old config' "$(find "$HOME/.local/state/ghostty-hackjitsu/backups" -name ghostty-ui | head -1)"
 # Re-running must not duplicate shell hooks or write unnecessary backups.
 before="$(find "$HOME/.local/state/ghostty-hackjitsu/backups" -type f | wc -l)"
 bash "$ROOT/install.sh" --no-quit --no-brew >"$TMP/reinstall.log"

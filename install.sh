@@ -14,6 +14,7 @@ NO_SHELL=0
 TOOLS=0
 NO_NVIM=0
 SKIP_LAZY_SYNC=0
+SETUP_UI=0
 CHECK_ONLY=0
 STRICT_CHECK=0
 USER_INSTALL=-1
@@ -21,7 +22,7 @@ QUIT_GHOSTTY=1
 
 usage() {
   cat <<'EOF'
-Usage: ./install.sh [--dry-run] [--check] [--no-quit] [--user] [--system] [--no-brew] [--no-shell] [--no-nvim] [--no-lazy-sync] [--tools] [--strict]
+Usage: ./install.sh [--dry-run] [--check] [--no-quit] [--user] [--system] [--no-brew] [--no-shell] [--no-nvim] [--no-lazy-sync] [--setup] [--tools] [--strict]
   --dry-run   Show intended changes without writing or installing anything
   --check     Verify installed packages and settings without changing anything
   --no-quit   Leave Ghostty running after installation (not recommended)
@@ -32,6 +33,7 @@ Usage: ./install.sh [--dry-run] [--check] [--no-quit] [--user] [--system] [--no-
   --no-shell  Skip optional Zsh plugins (isolated Ghostty shell still installed)
   --no-nvim   Skip Neovim, LazyVim, and their dependencies
   --no-lazy-sync Defer first LazyVim plugin download until starting nvim
+  --setup     Run interactive title/Zellij/Option wizard during installation
   --tools     Also install nmap, jq, ripgrep, and yq for command-line work
 EOF
 }
@@ -52,6 +54,7 @@ for arg in "$@"; do
     --no-shell) NO_SHELL=1 ;;
     --no-nvim) NO_NVIM=1 ;;
     --no-lazy-sync) SKIP_LAZY_SYNC=1 ;;
+    --setup) SETUP_UI=1 ;;
     --tools) TOOLS=1 ;;
     --help|-h) usage; exit 0 ;;
     *) echo "Unknown option: $arg" >&2; usage; exit 2 ;;
@@ -164,6 +167,10 @@ check_formula "Navi cheats UI" navi navi
 check_formula "fzf selector" fzf fzf
 check_formula "Zellij multiplexer" zellij zellij
 check_file_exists "$HJ_CONFIG/shell.zsh" "Shell helpers installed"
+check_file_exists "$HJ_CONFIG/ui-setup.sh" "Interactive terminal appearance wizard installed"
+check_file_exists "$HJ_CONFIG/ghostty-template.conf" "Portable Ghostty base preserved"
+check_file_exists "$HJ_CONFIG/zellij/template.kdl" "Portable Zellij base preserved"
+check_file_exists "$HJ_CONFIG/zellij/config.kdl" "User Zellij layout installed"
 check_file_exists "$HJ_CONFIG/completion.zsh" "Isolated completion and file-listing module"
 check_file_exists "$HJ_CONFIG/logo.txt" "Hack-Jitsu ASCII logo"
 if [ "$CHECK_SHELL" -eq 1 ]; then
@@ -558,14 +565,30 @@ for legacy in "$HOME/Library/Application Support/com.mitchellh.ghostty/config.gh
   fi
 done
 
-copy_asset "$ROOT/ghostty/config" "$GHOSTTY_DEST/config" ghostty-config
+# Use pristine templates to generate user-specific local title/status settings.
+copy_asset "$ROOT/ghostty/config" "$HJ_DEST/ghostty-template.conf" ghostty-template
+copy_asset "$ROOT/zellij/config.kdl" "$HJ_DEST/zellij/template.kdl" zellij-template
+copy_asset "$ROOT/shell/ui-setup.sh" "$HJ_DEST/ui-setup.sh" ui-setup
 copy_asset "$ROOT/ghostty/themes/hack-jitsu" "$GHOSTTY_DEST/themes/hack-jitsu" ghostty-theme
 copy_asset "$ROOT/ghostty/shaders/hack-jitsu-cursor.glsl" "$GHOSTTY_DEST/shaders/hack-jitsu-cursor.glsl" ghostty-shader
 copy_asset "$ROOT/ghostty/hack-jitsu-watermark.png" "$GHOSTTY_DEST/hack-jitsu-watermark.png" ghostty-watermark
 copy_asset "$ROOT/shell/hj.zsh" "$HJ_DEST/shell.zsh" hj-shell
 copy_asset "$ROOT/shell/hj-completion.zsh" "$HJ_DEST/completion.zsh" hj-completion
 copy_asset "$ROOT/shell/hj-logo.txt" "$HJ_DEST/logo.txt" hj-logo
-copy_asset "$ROOT/zellij/config.kdl" "$HJ_DEST/zellij/config.kdl" zellij-config
+if [ "$DRY_RUN" -eq 1 ]; then
+  echo "PLAN generate private Ghostty title and user-selected Zellij status bar"
+else
+  if [ "$SETUP_UI" -eq 1 ]; then
+    if [ -t 0 ] && [ -t 1 ]; then
+      bash "$HJ_DEST/ui-setup.sh"
+    else
+      echo "ERROR: --setup needs a terminal; run hjsetup after Ghostty starts." >&2
+      exit 2
+    fi
+  else
+    bash "$HJ_DEST/ui-setup.sh" --apply
+  fi
+fi
 
 for file in "$ROOT"/cheats/*.cheat; do
   [ -f "$file" ] || continue
@@ -646,8 +669,10 @@ echo "   hjhelp   Search interactive pentest/admin/network cheats"
 echo "   hjfetch  Show HACK JITSU system dashboard"
 echo "   ls/ll    Colorful file listings with Nerd Font icons"
 echo "   Tab      Fuzzy completion menu with argument descriptions"
-echo "   Zellij   Starts automatically inside the dropdown (session: hackjitsu)"
-echo "   wave     Reattach to hackjitsu session after leaving it"
+echo "   Zellij   Starts in a fresh shell session"
+echo "   hjsetup  Configure title, Zellij bar and Mac Option key"
+echo "   hjkeys   Show Mac-oriented Zellij shortcuts"
+echo "   wave     Manually reattach an older Zellij session"
 if [ "$NO_NVIM" -eq 0 ]; then
   echo "   nvim     Start LazyVim (plugins prepared by installer when online)"
 else

@@ -1,4 +1,24 @@
 # Self-contained shell helpers sourced ONLY by the Hack-Jitsu ZDOTDIR/.zshrc.
+hjsetup() {
+  local script="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty-hackjitsu/ui-setup.sh"
+  if [[ ! -r "$script" ]]; then
+    print -u2 "hjsetup: install.sh must be run first"
+    return 1
+  fi
+  command bash "$script" "$@"
+}
+
+hjkeys() {
+  print -P '%B%F{#ec1313}HACK-JITSU · macOS Zellij keys%f%b'
+  print '  ⌥ Option = Alt  |  ⌃ Control = Ctrl'
+  print '  ⌃ Control + P, then N  New pane'
+  print '  ⌃ Control + T, then N  New tab'
+  print '  ⌃ Control + G          Lock/unlock Zellij'
+  print '  ⌃ Control + O, then C  Zellij keybinding configuration'
+  print '  hjsetup                 Window title / full or compact status bar'
+  print '  Default: left Option works as Alt; right Option keeps Polish letters.'
+}
+
 hjhelp() {
   if ! command -v navi >/dev/null 2>&1; then
     print -u2 'hjhelp: navi is not installed (brew install navi)'
@@ -33,10 +53,12 @@ hj() {
   printf '  hj                 Show this guide again\n'
   printf '  hjhelp             Interactive pentest, network, admin and terminal cheats\n'
   printf '  hjfetch            HACK JITSU system dashboard\n'
+  printf '  hjsetup            Configure title / Zellij bar / Mac Option key\n'
+  printf '  hjkeys             Mac key guide (Option = Alt)\n'
   printf '  ls / ll / la / lt  File lists with colors and icons\n'
   printf '  Tab                Interactive argument completion\n'
-  printf '  Zellij             Starts automatically in Ghostty (session: hackjitsu-v2)
-  wave               Reattach to Hack-Jitsu after leaving Zellij\n'
+  printf '  Zellij             Starts a new, clean session in Ghostty\n'
+  printf '  wave [name]        Reattach a previous session manually\n'
   printf '  nvim               Start Neovim + LazyVim\n'
   printf '  Ctrl+P then N      Open a second Zellij pane with shell\n'
   printf '\n'

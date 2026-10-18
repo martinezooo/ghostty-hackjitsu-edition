@@ -32,6 +32,40 @@ When you later want the dropdown, manually start Ghostty **once** using `open -a
 
 The Ghostty configuration also disables the close confirmation (`confirm-close-surface = false`) to avoid repeated dialogs, so **quitting Ghostty will not ask you to save active terminal jobs**. The installer provides `--no-quit` to preserve active sessions when deliberately needed; `--dry-run` and `--check` never close Ghostty. The old `--launch` and `--restart` flags are removed because they caused unwanted windows/restarts.
 
+## Personal Ghostty title and Zellij appearance
+
+The public Ghostty profile does **not** commit any username or private
+machine data. On installation it builds a **local** Ghostty config with
+`title = <macOS login>`; the internal short Zellij session name (`hj-12345`)
+stays unchanged to avoid macOS socket path limits. This replaces the visible
+`zellij (hj-...)` window title with your username.
+
+**Interactive setup**, at installation time or later:
+
+```bash
+./install.sh --setup               # choose during installation (requires a TTY)
+hjsetup                            # re-run setup from Hack-Jitsu Ghostty
+hjsetup --show                     # read-only summary
+hjsetup --title Analyst --bar compact --option left
+hjkeys                             # Mac Option / Control keyboard guide
+```
+
+The wizard offers **classic Zellij** (two lines with `LOCK`, `PANE`,
+`TAB`, `RESIZE`, etc.) or **compact Zellij** (single bottom line
+with tabs). Zellij uses the hard-coded name **Alt** in its built-in
+status plugin; on Mac this is **Option**. Ghostty sends the **left Option
+as Alt** by default so Zellij shortcuts work, while **right Option
+continues typing Polish characters**. You can switch to both Options,
+right Option, or macOS defaults using `hjsetup --option both|right|off`.
+
+Settings live only in `~/.config/ghostty-hackjitsu/ui.conf` (0600)
+and are preserved on reinstall. The installer preserves portable originals
+as local templates and renders current settings without overwriting your
+private `~/.zshrc` or global `~/.config/zellij/config.kdl`.
+Zellij status bar changes apply to the **next new session**;
+closing/opening Ghostty after saving work is sufficient. Ghostty may
+reload the title immediately. A normal installer run does not prompt.
+
 ## Rich shell experience (matching the private Mac terminal)
 
 The isolated Hack-Jitsu Zsh profile installs **eza**, **fastfetch**, **fzf-tab**, and **zsh-completions** via Homebrew if missing. `ls` becomes a colorful icon-based listing, with `ll` (details), `la` (all files) and `lt` (tree). `command ls` bypasses the alias.
@@ -113,4 +147,4 @@ Quick start: `nvim .` opens the current project, `Space ff` finds files, and `Sp
 
 The installer copies files, not symlinks. Make changes in this repository and rerun `./install.sh --no-brew` to deploy them. It leaves unrelated personal files intact and does not modify `~/.ssh/config`, Git identity or existing Neovim profiles. On upgrade from older versions, the installer backs up `~/.zshrc` and removes only the exact Hack-Jitsu block it previously inserted. No background synchronization or automatic package upgrades.
 
-Run `bash tests/test-install.sh`, `bash tests/test-check.sh` and `bash tests/test-packages.sh`, `bash tests/test-shell.sh`, `bash tests/test-isolated-zsh.sh`, `bash tests/test-history.sh`, `bash tests/test-shell-ux.sh`, `bash tests/test-zellij-runtime.sh`, and `bash tests/test-launch.sh` to verify dry runs, backups, package detection, embedded diagnostics and idempotency. Run `bash tests/test-ghostty.sh` on a Mac with Ghostty installed to validate the isolated Ghostty configuration, shortcuts and effective font. Run `bash tests/test-nvim.sh` after dependencies are installed to download plugins in a temporary directory and detect LazyVim errors that might be hidden behind a successful Neovim exit code. That optional test requires GitHub access, skips if `nvim` or `tree-sitter` is unavailable, and leaves existing Neovim data untouched. Ghostty may also load `~/Library/Application Support/com.mitchellh.ghostty/config.ghostty` or `config` *after* the XDG configuration, so the installer warns about either file but deliberately does not alter it. The source tree is also checked for personal identifiers. No installation is performed on your current Mac by creating this repository.
+Run `bash tests/test-install.sh`, `bash tests/test-check.sh` and `bash tests/test-packages.sh`, `bash tests/test-shell.sh`, `bash tests/test-isolated-zsh.sh`, `bash tests/test-history.sh`, `bash tests/test-shell-ux.sh`, `bash tests/test-ui-setup.sh`, `bash tests/test-zellij-runtime.sh`, and `bash tests/test-launch.sh` to verify dry runs, backups, package detection, embedded diagnostics and idempotency. Run `bash tests/test-ghostty.sh` on a Mac with Ghostty installed to validate the isolated Ghostty configuration, shortcuts and effective font. Run `bash tests/test-nvim.sh` after dependencies are installed to download plugins in a temporary directory and detect LazyVim errors that might be hidden behind a successful Neovim exit code. That optional test requires GitHub access, skips if `nvim` or `tree-sitter` is unavailable, and leaves existing Neovim data untouched. Ghostty may also load `~/Library/Application Support/com.mitchellh.ghostty/config.ghostty` or `config` *after* the XDG configuration, so the installer warns about either file but deliberately does not alter it. The source tree is also checked for personal identifiers. No installation is performed on your current Mac by creating this repository.
