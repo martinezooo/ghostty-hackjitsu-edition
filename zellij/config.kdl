@@ -3,3 +3,14 @@
 default_mode "normal"
 show_release_notes false
 simplified_ui true
+// Start with a normal shell pane, not Zellij's first-run/about screen.
+show_startup_tips false
+default_layout "default"
+default_shell "/bin/zsh"
+// New Hack-Jitsu sessions must not resurrect editor panes after a terminal
+// restart. This affects only sessions launched with this private config.
+session_serialization false
+// When Ghostty is fully closed, stop this temporary session instead of
+// detaching and accumulating abandoned sessions in the background.
+// Merely hiding the dropdown does not close the terminal or its Zellij pane.
+on_force_close "quit"

@@ -61,12 +61,21 @@ TERM_PROGRAM=ghostty TERM=xterm-ghostty HJ_AUTO_ZELLIJ=0 zsh -ic '
 ' >"$TMP/local.log" 2>&1
 cat "$TMP/local.log" | grep -Fq FAKE_FETCH
 cat "$TMP/local.log" | grep -Fq 'logo.txt'
-# In Zellij, nvim(file) uses --in-place editor; closing it restores the shell.
+# Standard Neovim must be a child of the real Zsh pane and must return there
+# on exit. A custom Zellij edit --in-place call can create an editor-only pane.
+cat > "$TMP/bin/nvim" <<'STUB'
+#!/bin/sh
+printf '%s\n' "$*" >> "$HJ_TEST_EDIT_LOG"
+STUB
+chmod +x "$TMP/bin/nvim"
 ZELLIJ=1 TERM_PROGRAM=ghostty TERM=xterm-ghostty HJ_AUTO_ZELLIJ=0 zsh -ic '
-  (( $+functions[nvim] )) || exit 31
-  nvim /tmp/example.log
+  (( $+functions[nvim] )) && exit 31
+  nvim /tmp/example.log || exit 32
+  print -r -- RETURNED_TO_SHELL
 ' >"$TMP/zellij.log" 2>&1
-grep -Fq 'edit --in-place /tmp/example.log' "$HJ_TEST_EDIT_LOG"
+grep -Fxq '/tmp/example.log' "$HJ_TEST_EDIT_LOG"
+grep -Fq 'RETURNED_TO_SHELL' "$TMP/zellij.log"
+! grep -Fq 'edit --in-place' "$HJ_TEST_EDIT_LOG"
 grep -qx 'alias private="not shared"' "$HOME/.zshrc"
 # Regular macOS shells are untouched, including their aliases and prompt.
 ZDOTDIR="$HOME" TERM_PROGRAM=Apple_Terminal TERM=xterm-256color zsh -ic '

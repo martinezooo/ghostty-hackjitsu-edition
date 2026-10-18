@@ -61,9 +61,17 @@ def launch(case,expected,changes=None,marker=False):
     assert 'ISOLATED_'+case in output,(case,output)
     calls=log.read_text().strip().splitlines() if log.exists() else []
     assert len(calls)==expected,(case,calls,output[-1000:])
-    if calls:assert calls[0]=='attach -c hackjitsu-v2',(case,calls)
+    if calls:
+        assert calls[0].startswith('--session hj-'),(case,calls)
+        assert len(calls[0].split(' ',1)[1]) <= 16,('socket-path risk',calls)
+        assert 'attach' not in calls[0], (case,calls)
     print('PASS ZDOTDIR case',case,'Zellij calls:',len(calls))
 launch('normal',1)
+first=log.read_text().strip()
+launch('normal_again',1)
+second=log.read_text().strip()
+assert first!=second,('Zellij sessions must have unique names',first,second)
+print('PASS: each Ghostty startup gets a fresh session instead of old editor')
 launch('nested_zellij',0,{'ZELLIJ':'1'})
 launch('nested_tmux',0,{'TMUX':'/tmp/tmux'})
 launch('ssh',0,{'SSH_CONNECTION':'remote'})

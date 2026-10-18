@@ -7,7 +7,7 @@ hjhelp() {
   command navi --path "${XDG_CONFIG_HOME:-$HOME/.config}/ghostty-hackjitsu/cheats" "$@"
 }
 
-# Attach to an existing named Zellij session, or start one.
+# Explicit/manual reattachment to an old named session, never on startup.
 if ! typeset -f wave >/dev/null 2>&1; then
   wave() {
     if ! command -v zellij >/dev/null 2>&1; then
@@ -18,7 +18,11 @@ if ! typeset -f wave >/dev/null 2>&1; then
       print "Already inside a Zellij session"
       return 0
     fi
-    zellij attach -c hackjitsu-v2
+    if (( $# == 0 )); then
+      zellij attach
+    else
+      zellij attach "$@"
+    fi
   }
 fi
 
@@ -83,18 +87,8 @@ if [[ -o interactive ]] &&
   PROMPT='%B%F{#ec1313}❯%f%b '
   RPROMPT=''
 
-  # In Zellij, single-file "nvim filename" opens the editor in-place and
-  # restores the ORIGINAL shell pane when :q! closes the editor.
-  # Complex Neovim invocations keep their normal CLI semantics.
-  if [[ -n "${ZELLIJ:-}" ]] && (( $+commands[nvim] && $+commands[zellij] )); then
-    nvim() {
-      if (( $# == 1 )) && [[ "$1" != -* ]] && [[ "${HJ_NVIM_DIRECT:-0}" != 1 ]]; then
-        command env EDITOR=nvim VISUAL=nvim zellij edit --in-place "$1"
-      else
-        command nvim "$@"
-      fi
-    }
-  fi
+  # No nvim wrapper. Standard nvim runs as a child of the Zsh pane:
+  # :q! returns to this exact shell instead of closing/restoring a Zellij pane.
 fi
 
 # Show the guide once per macOS user, in Ghostty only, never in SSH/noninteractive shells.

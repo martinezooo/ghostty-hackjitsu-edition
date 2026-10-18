@@ -52,7 +52,10 @@ if [[ -r "$_hj_zellij_config" ]]; then
 fi
 unset _hj_zellij_config
 
-# Default LOCAL Ghostty workspace: attach to one persistent Zellij session.
+# Default LOCAL Ghostty workspace: a NEW Zellij session with a real shell.
+# Never auto-attach/resurrect an old session (which may contain a running
+# editor or a no-longer-existing pane). Previous sessions remain untouched
+# and may be resumed manually with wave <session-name> when desired.
 # No nesting in Zellij/tmux, no remote SSH auto-start, and no recursion.
 # Disable with: touch ~/.config/ghostty-hackjitsu/zsh/no-auto-zellij
 # or export HJ_AUTO_ZELLIJ=0 before launching Ghostty.
@@ -63,7 +66,13 @@ if [[ -o interactive && -t 0 && -t 1 ]] &&
    [[ "${HJ_AUTO_ZELLIJ:-1}" != 0 ]] &&
    [[ ! -e "${ZDOTDIR:-$HOME}/no-auto-zellij" ]]; then
   if (( $+commands[zellij] )); then
-    zellij attach -c hackjitsu-v2
+    # Keep name SHORT: macOS has a ~104-byte UNIX socket path limit and
+    # Zellij appends the name to the already-long macOS TMPDIR path.
+    # This shell's PID is unique among currently running terminals.
+    # A full close quits this disposable Zellij session (on_force_close).
+    _hj_session="hj-$$"
+    zellij --session "$_hj_session"
+    unset _hj_session
   else
     print -u2 'Hack-Jitsu: Zellij not installed; opening standard shell.'
   fi
