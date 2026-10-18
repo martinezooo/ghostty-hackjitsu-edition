@@ -15,6 +15,11 @@ ZC="$XDG_CONFIG_HOME/ghostty-hackjitsu/zellij/config.kdl"
 PREF="$XDG_CONFIG_HOME/ghostty-hackjitsu/ui.conf"
 test -x "$SETUP" || test -r "$SETUP"
 test ! -e "$PREF"
+bash "$SETUP" --preview >"$TMP/preview.txt"
+grep -Fq 'Ghostty • dark / red' "$TMP/preview.txt"
+grep -Fq 'Zellij classic / 2 lines' "$TMP/preview.txt"
+grep -Fq 'Zellij compact / 1 line' "$TMP/preview.txt"
+test ! -e "$PREF"
 grep -Fqx "title = $(id -un)" "$GC"
 grep -Fqx 'macos-option-as-alt = left' "$GC"
 grep -Fqx 'default_layout "default"' "$ZC"
@@ -35,6 +40,17 @@ grep -Fqx 'bar=compact' "$PREF"
 grep -Fqx 'option=both' "$PREF"
 test "$(stat -f %Lp "$PREF")" = "600" || test "$(stat -c %a "$PREF")" = "600"
 bash "$SETUP" --show | grep -Fq 'Title: analyst'
+# User-selected theme/font/opacity render into native Ghostty config.
+bash "$SETUP" --title analyst --bar compact --option both   --theme TokyoNight --font 16 --opacity 0.8 >/dev/null
+grep -Fqx 'theme = TokyoNight' "$GC"
+grep -Fqx 'font-size = 16' "$GC"
+grep -Fqx 'background-opacity = 0.8' "$GC"
+grep -Fqx 'macos-icon = custom' "$GC"
+grep -Fqx "macos-custom-icon = $XDG_CONFIG_HOME/ghostty/hack-jitsu-red-icon.png" "$GC"
+test -f "$XDG_CONFIG_HOME/ghostty/hack-jitsu-red-icon.png"
+# Restore the original preset to keep following tests stable.
+bash "$SETUP" --theme hack-jitsu --font 14 --opacity 0.9 >/dev/null
+
 # Check the configured layout against the real Zellij bundled layouts.
 # A detached session has no UI client and does not instantiate status plugins,
 # so list-panes would be misleading; native layout validation is authoritative.
@@ -84,6 +100,6 @@ ZDOTDIR="$XDG_CONFIG_HOME/ghostty-hackjitsu/zsh" TERM_PROGRAM=ghostty HJ_AUTO_ZE
   hj
 ' >"$TMP/keys.log" 2>&1
 grep -Fq 'Option = Alt' "$TMP/keys.log"
-grep -Fq 'hjsetup            Configure title' "$TMP/keys.log"
+grep -Fq 'hjsetup            Visual terminal/Zellij preview wizard' "$TMP/keys.log"
 grep -Fq 'Starts a new, clean session' "$TMP/keys.log"
 echo 'PASS: username title, both Zellij status layouts, Mac Option mapping, stable reinstall and safe preferences'

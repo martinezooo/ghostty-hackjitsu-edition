@@ -42,6 +42,20 @@ else
   print -u2 'Hack-Jitsu: missing shell.zsh; rerun installer.'
 fi
 unset _hj_core
+# Powerlevel10k is opt-in: the standalone Hack-Jitsu wizard enables it only
+# after generating an isolated config. Never read personal ~/.p10k.zsh.
+_hj_p10k_zd="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty-hackjitsu/zsh"
+if [[ -f "$_hj_p10k_zd/enable-p10k" && -r "$_hj_p10k_zd/.p10k.zsh" ]]; then
+  for _hj_p10k_root in /opt/homebrew/share/powerlevel10k                       /usr/local/share/powerlevel10k; do
+    if [[ -r "$_hj_p10k_root/powerlevel10k.zsh-theme" ]]; then
+      source "$_hj_p10k_root/powerlevel10k.zsh-theme"
+      source "$_hj_p10k_zd/.p10k.zsh"
+      break
+    fi
+  done
+fi
+unset _hj_p10k_zd _hj_p10k_root
+
 
 
 # Use our own small Zellij config; avoid the first-run keybinding wizard and

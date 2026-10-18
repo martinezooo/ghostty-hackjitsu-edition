@@ -1,11 +1,24 @@
 # Self-contained shell helpers sourced ONLY by the Hack-Jitsu ZDOTDIR/.zshrc.
+hjp10k() {
+  local script="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty-hackjitsu/p10k-setup.sh"
+  if [[ ! -r "$script" ]]; then
+    print -u2 "hjp10k: run install.sh first"
+    return 1
+  fi
+  command bash "$script" "$@"
+}
 hjsetup() {
   local script="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty-hackjitsu/ui-setup.sh"
   if [[ ! -r "$script" ]]; then
     print -u2 "hjsetup: install.sh must be run first"
     return 1
   fi
-  command bash "$script" "$@"
+  if [[ "${1:-}" == --all ]]; then
+    hjp10k || return
+    command bash "$script"
+  else
+    command bash "$script" "$@"
+  fi
 }
 
 hjkeys() {
@@ -53,7 +66,9 @@ hj() {
   printf '  hj                 Show this guide again\n'
   printf '  hjhelp             Interactive pentest, network, admin and terminal cheats\n'
   printf '  hjfetch            HACK JITSU system dashboard\n'
-  printf '  hjsetup            Configure title / Zellij bar / Mac Option key\n'
+  printf '  hjsetup            Visual terminal/Zellij preview wizard\n'
+  printf '  hjsetup --all      Run P10K wizard first, then Hack-Jitsu wizard\n'
+  printf '  hjp10k             Reconfigure isolated Powerlevel10k prompt\n'
   printf '  hjkeys             Mac key guide (Option = Alt)\n'
   printf '  ls / ll / la / lt  File lists with colors and icons\n'
   printf '  Tab                Interactive argument completion\n'
@@ -106,8 +121,18 @@ if [[ -o interactive ]] &&
 
   # Keep the prompt short and stable, regardless of the current path or repo.
   # More detailed context is available on demand through pwd/git status.
-  PROMPT='%B%F{#ec1313}❯%f%b '
+  _hj_prompt_color='#ec1313'
+  _hj_ui_prefs="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty-hackjitsu/ui.conf"
+  if [[ -r "$_hj_ui_prefs" && ! -L "$_hj_ui_prefs" ]]; then
+    _hj_theme_line="$(grep '^theme=' "$_hj_ui_prefs" 2>/dev/null || true)"
+    case "$_hj_theme_line" in
+      *TokyoNight*) _hj_prompt_color='#7aa2f7' ;;
+      *Catppuccin*) _hj_prompt_color='#ca9ee6' ;;
+    esac
+  fi
+  PROMPT="%B%F{$_hj_prompt_color}❯%f%b "
   RPROMPT=''
+  unset _hj_ui_prefs _hj_prompt_color _hj_theme_line
 
   # No nvim wrapper. Standard nvim runs as a child of the Zsh pane:
   # :q! returns to this exact shell instead of closing/restoring a Zellij pane.

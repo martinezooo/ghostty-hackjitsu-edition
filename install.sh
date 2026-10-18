@@ -62,7 +62,7 @@ Usage: ./install.sh [--dry-run] [--check] [--no-quit] [--user] [--system] [--no-
   --no-shell  Skip optional Zsh plugins (isolated Ghostty shell still installed)
   --no-nvim   Skip Neovim, LazyVim, and their dependencies
   --no-lazy-sync Defer first LazyVim plugin download until starting nvim
-  --setup     Run interactive title/Zellij/Option wizard during installation
+  --setup     Run Powerlevel10k's visual wizard, then Hack-Jitsu's preview wizard
   --tools     Also install nmap, jq, ripgrep, and yq for command-line work
 EOF
 }
@@ -90,6 +90,12 @@ for arg in "$@"; do
     *) echo "Unknown option: $arg" >&2; usage; exit 2 ;;
   esac
 done
+
+if [ "$SETUP_UI" -eq 1 ] && [ "$DRY_RUN" -eq 0 ] &&
+   { [ ! -t 0 ] || [ ! -t 1 ]; }; then
+  status FAIL "--setup requires a real terminal; use hjsetup --preview for examples."
+  exit 2
+fi
 
 verify_installation() {
   local DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
@@ -198,6 +204,9 @@ check_formula "fzf selector" fzf fzf
 check_formula "Zellij multiplexer" zellij zellij
 check_file_exists "$HJ_CONFIG/shell.zsh" "Shell helpers installed"
 check_file_exists "$HJ_CONFIG/ui-setup.sh" "Interactive terminal appearance wizard installed"
+check_file_exists "$HJ_CONFIG/hj-wizard.py" "Preview-first Hack-Jitsu wizard installed"
+check_file_exists "$HJ_CONFIG/p10k-setup.sh" "Isolated Powerlevel10k setup helper installed"
+check_file_exists "$GHOSTTY_CONFIG/hack-jitsu-red-icon.png" "Transparent Hack-Jitsu red app icon"
 check_file_exists "$HJ_CONFIG/restart-ghostty.sh" "Controlled Ghostty app relaunch helper installed"
 check_file_exists "$HJ_CONFIG/ghostty-template.conf" "Portable Ghostty base preserved"
 check_file_exists "$HJ_CONFIG/zellij/template.kdl" "Portable Zellij base preserved"
@@ -613,6 +622,8 @@ if [ "$NO_BREW" -eq 0 ]; then
   brew_formula navi
   brew_formula fzf
   brew_formula zellij
+  # Optional interactive first-run preview theme (never modifies personal Zsh).
+  if [ "$NO_SHELL" -eq 0 ]; then brew_formula powerlevel10k; fi
   if [ "$NO_SHELL" -eq 0 ]; then
     brew_formula zsh-autosuggestions
     brew_formula zsh-syntax-highlighting
@@ -648,6 +659,9 @@ done
 copy_asset "$ROOT/ghostty/config" "$HJ_DEST/ghostty-template.conf" ghostty-template
 copy_asset "$ROOT/zellij/config.kdl" "$HJ_DEST/zellij/template.kdl" zellij-template
 copy_asset "$ROOT/shell/ui-setup.sh" "$HJ_DEST/ui-setup.sh" ui-setup
+copy_asset "$ROOT/shell/hj-wizard.py" "$HJ_DEST/hj-wizard.py" hj-wizard
+copy_asset "$ROOT/shell/p10k-setup.sh" "$HJ_DEST/p10k-setup.sh" p10k-wizard
+copy_asset "$ROOT/ghostty/hack-jitsu-red-icon.png" "$GHOSTTY_DEST/hack-jitsu-red-icon.png" red-ghostty-icon
 copy_asset "$ROOT/shell/restart-ghostty.sh" "$HJ_DEST/restart-ghostty.sh" ghostty-restart
 copy_asset "$ROOT/ghostty/themes/hack-jitsu" "$GHOSTTY_DEST/themes/hack-jitsu" ghostty-theme
 copy_asset "$ROOT/ghostty/shaders/hack-jitsu-cursor.glsl" "$GHOSTTY_DEST/shaders/hack-jitsu-cursor.glsl" ghostty-shader
@@ -656,18 +670,9 @@ copy_asset "$ROOT/shell/hj.zsh" "$HJ_DEST/shell.zsh" hj-shell
 copy_asset "$ROOT/shell/hj-completion.zsh" "$HJ_DEST/completion.zsh" hj-completion
 copy_asset "$ROOT/shell/hj-logo.txt" "$HJ_DEST/logo.txt" hj-logo
 if [ "$DRY_RUN" -eq 1 ]; then
-  echo "PLAN generate private Ghostty title and user-selected Zellij status bar"
+  echo "PLAN generate title, Mac Option behavior, colors and custom icon"
 else
-  if [ "$SETUP_UI" -eq 1 ]; then
-    if [ -t 0 ] && [ -t 1 ]; then
-      bash "$HJ_DEST/ui-setup.sh"
-    else
-      echo "ERROR: --setup needs a terminal; run hjsetup after Ghostty starts." >&2
-      exit 2
-    fi
-  else
-    bash "$HJ_DEST/ui-setup.sh" --apply
-  fi
+  bash "$HJ_DEST/ui-setup.sh" --apply
 fi
 
 for file in "$ROOT"/cheats/*.cheat; do
@@ -677,6 +682,20 @@ done
 
 # Dedicated Ghostty Zsh is always provisioned even with --no-shell.
 copy_asset "$ROOT/shell/isolated.zshrc" "$HJ_DEST/zsh/.zshrc" isolated-zshrc
+
+# Two visual wizards, in sequence, only when explicitly requested.
+# Never run while non-interactive. The real P10K wizard runs in a disposable
+# ZDOTDIR: it cannot alter ~/.zshrc or the active installed profile.
+if [ "$SETUP_UI" -eq 1 ] && [ "$DRY_RUN" -eq 0 ]; then
+  if [ ! -t 0 ] || [ ! -t 1 ]; then
+    status FAIL "--setup requires a real terminal."
+    exit 2
+  fi
+  status INFO "Stage 1/2: Powerlevel10k prompt previews..."
+  bash "$HJ_DEST/p10k-setup.sh"
+  status INFO "Stage 2/2: Hack-Jitsu Ghostty + Zellij previews..."
+  bash "$HJ_DEST/ui-setup.sh"
+fi
 
 # Upgrade from earlier releases: undo ONLY the exact fragment we previously
 # appended to ~/.zshrc. Back it up. Leave all unrelated lines unchanged.

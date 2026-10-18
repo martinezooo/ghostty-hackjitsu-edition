@@ -14,7 +14,7 @@ cd ghostty-hackjitsu-edition
 ./install.sh --check    # checks without any changes or quitting Ghostty
 ```
 
-The installer **skips components that are already installed** (Ghostty app, Nerd Font, or existing Homebrew formulas / CLI executables). Otherwise it uses Homebrew to install Ghostty, JetBrains Mono Nerd Font, Navi, fzf, Zellij, Neovim, lazygit, ripgrep, fd, and tree-sitter-cli. Ghostty is configured to use the actual font family `JetBrainsMono Nerd Font Mono`; using the font's package name as its family name can silently fall back to the bundled font. Existing files are backed up under `~/.local/state/ghostty-hackjitsu/backups/` before replacement. It never replaces the entire shell or SSH configuration.
+The installer **skips components that are already installed** (Ghostty app, Nerd Font, or existing Homebrew formulas / CLI executables). Otherwise it uses Homebrew to install Ghostty, JetBrains Mono Nerd Font, Navi, fzf, Zellij, Powerlevel10k, Neovim, lazygit, ripgrep, fd, and tree-sitter-cli. Ghostty is configured to use the actual font family `JetBrainsMono Nerd Font Mono`; using the font's package name as its family name can silently fall back to the bundled font. Existing files are backed up under `~/.local/state/ghostty-hackjitsu/backups/` before replacement. It never replaces the entire shell or SSH configuration.
 
 Optional flags: `--check` (read-only verification built into `install.sh`), `--strict` (warnings fail verification), `--no-brew` (configuration only), `--no-shell` (skip optional Zsh plugins; isolated Zsh is still installed), `--no-nvim` (do not install Neovim/LazyVim), `--no-lazy-sync` (defer plugin download), `--no-relaunch` (stop without reopening), `--no-quit` (preserve live sessions), `--tools` (nmap, jq, ripgrep, yq), and `--dry-run` (no changes).
 
@@ -53,39 +53,80 @@ closes the app but leaves it stopped. `--dry-run` and `--check`
 never close or start Ghostty. Obsolete `--launch` and `--restart`
 flags remain unsupported: the controlled restart is now the default.
 
-## Personal Ghostty title and Zellij appearance
+## Preview-first setup: Powerlevel10k, Ghostty and Zellij
 
-The public Ghostty profile does **not** commit any username or private
-machine data. On installation it builds a **local** Ghostty config with
-`title = <macOS login>`; the internal short Zellij session name (`hj-12345`)
-stays unchanged to avoid macOS socket path limits. This replaces the visible
-`zellij (hj-...)` window title with your username.
-
-**Interactive setup**, at installation time or later:
+A normal install provisions the standalone Hack-Jitsu profile **without
+running any interactive wizard** and keeps the existing minimal red prompt.
+For the guided experience seen in `p10k configure`, run the installer
+**from a real terminal** with `--setup`:
 
 ```bash
-./install.sh --setup               # choose during installation (requires a TTY)
-hjsetup                            # re-run setup from Hack-Jitsu Ghostty
-hjsetup --show                     # read-only summary
-hjsetup --title Analyst --bar compact --option left
-hjkeys                             # Mac Option / Control keyboard guide
+./install.sh --setup --no-quit
 ```
 
-The wizard offers **classic Zellij** (two lines with `LOCK`, `PANE`,
-`TAB`, `RESIZE`, etc.) or **compact Zellij** (single bottom line
-with tabs). Zellij uses the hard-coded name **Alt** in its built-in
-status plugin; on Mac this is **Option**. Ghostty sends the **left Option
-as Alt** by default so Zellij shortcuts work, while **right Option
-continues typing Polish characters**. You can switch to both Options,
-right Option, or macOS defaults using `hjsetup --option both|right|off`.
+1. **Powerlevel10k**: the original `p10k configure` wizard shows real
+   prompt variants. It runs in a **disposable isolated `ZDOTDIR`** and
+   saves only the generated config to
+   `~/.config/ghostty-hackjitsu/zsh/.p10k.zsh`. Never edits your
+   personal `~/.zshrc` or `~/.p10k.zsh`.
+2. **Hack-Jitsu previews**: the second wizard shows colorful terminal
+   examples **before selecting** Ghostty theme (Hack-Jitsu red, TokyoNight
+   blue, Catppuccin Frappe plum), Zellij bar (classic full help vs compact),
+   font size (12/14/16pt), transparency (100/90/80%), and Mac Option mapping.
+   Use `p` at the theme step to open **Ghostty's native live
+   `+list-themes` preview** instead of relying on the approximate
+   sample cards. The demo reflects the main settings; it is not an actual
+   screenshot of the final GPU-rendered terminal.
 
-Settings live only in `~/.config/ghostty-hackjitsu/ui.conf` (0600)
-and are preserved on reinstall. The installer preserves portable originals
-as local templates and renders current settings without overwriting your
-private `~/.zshrc` or global `~/.config/zellij/config.kdl`.
-Zellij status bar changes apply to the **next new session**;
-closing/opening Ghostty after saving work is sufficient. Ghostty may
-reload the title immediately. A normal installer run does not prompt.
+**Only the last explicit confirmation saves the second wizard's choices.**
+`q` cancels without writing changes. No personal usernames or
+machine-specific settings are committed to GitHub.
+
+You can repeat setup later:
+
+```bash
+hjsetup                         # visual preview wizard only
+hjsetup --preview               # show the two layouts without changes
+hjsetup --all                   # Powerlevel10k first, then visual wizard
+hjp10k                          # Powerlevel10k only
+hjsetup --show                  # current settings, no changes
+hjsetup --bar compact --theme TokyoNight --font 16 --opacity 0.8
+hjsetup --option left           # left Option = Alt, right Option types Polish
+```
+
+Powerlevel10k is now an **optional installed dependency** (`brew install
+powerlevel10k` with the standard installer). It is **enabled only after
+successfully completing its wizard**, preserving the current prompt for
+users who don't want it. The public repository includes no personal P10K
+configuration. To restore the original Hack-Jitsu prompt, remove the
+private `~/.config/ghostty-hackjitsu/zsh/enable-p10k` marker.
+
+### Red Hack-Jitsu app icon
+
+The bundled 1024×1024 RGBA icon is derived from the user-supplied red
+Hack-Jitsu Ghostty artwork, with symmetric inset and **transparent**
+corners (no surrounding black/white square). Ghostty itself supports
+this natively: the generated local config uses `macos-icon = custom`
+and an absolute `macos-custom-icon` path under
+`~/.config/ghostty/`. **We do not modify the signed Ghostty.app
+bundle**, so macOS updates remain safe.
+
+Per the [official Ghostty documentation](https://ghostty.org/docs/config/reference),
+the custom icon affects the running app icon (Dock/app switcher), **not
+the Finder icon for the Ghostty.app bundle**. The Hack-Jitsu dropdown
+deliberately uses `macos-hidden = always`, so you won't normally
+see its icon in the Dock; this preserves the existing Option+Tab workflow.
+The icon asset is nevertheless installed and configured.
+
+Ghostty's built-in Zellij status bar uses the label `Alt`, which
+means `⌥ Option` on Mac. The default maps **left Option as Alt**
+while preserving right Option for Polish characters. Use `hjkeys`
+for the Mac-oriented shortcut reference. Changing the Zellij bar
+requires starting a **new Zellij session**; existing sessions are
+never overwritten. Current settings are stored locally in
+`~/.config/ghostty-hackjitsu/ui.conf` (mode 0600) and preserved
+across reinstalls.
+
 
 ## Rich shell experience (matching the private Mac terminal)
 
