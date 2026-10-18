@@ -38,6 +38,16 @@ The isolated Hack-Jitsu Zsh profile installs **eza**, **fastfetch**, **fzf-tab**
 
 **Tab** uses the Zsh completion system for **all commands with available completions** (including `git`, `ssh`, `rsync`, `nmap`, and installed tools like Docker or kubectl). `fzf-tab` supplies a fuzzy selection interface with option descriptions when installed. `ls` and related eza aliases explicitly reuse eza completions. For option menus, type a partial flag such as `git --<Tab>` or `ls -<Tab>`; after a fully formed flag like `ls -la<Tab>`, there may be nothing further to complete. Plugin order is deliberate: compinit, fzf-tab, autosuggestions, highlighting. `hjfetch` shows Fastfetch with the bundled HACK JITSU ASCII logo and live system information. The Fastfetch logo uses a red theme (rather than system defaults, which may be green). The shell prompt is a small **red `❯`**, without a forced pathname or Git branch; `pwd` and `git status` remain available when needed. The banner appears in sufficiently wide interactive sessions, and can be suppressed using `HJ_NO_BANNER=1`. Personal device information is never included in the public repo.
 
+### ANSI log files in Neovim (automatic, non-destructive)
+
+Hack-Jitsu Neovim **automatically hides ANSI SGR color codes** like a real Escape + `[31m`, serialized `\\x1b[31m`, or `\\u001b[31m` when opening a file that contains them. This removes the clutter from reading/editing logs, without deleting any bytes or modifying the file. No extra Neovim plugin or pre-conversion is needed.
+
+- `:HJAnsiToggle` toggles whether the color codes are visible in the current buffer, without changing content.
+- `:HJAnsiStrip` removes these **color sequences only** from the current buffer, then use `:w` to save (or `u` to undo). The original disk file stays unchanged until you explicitly save.
+- General literal `\\xNN` values (e.g. `\\x41`, HTTP payload bytes or binary evidence) are **not** color escapes and are deliberately preserved.
+
+This is enabled for **new and existing Hack-Jitsu-managed LazyVim configs**. The installer first backs up the managed `init.lua` and adds the small built-in module, but **never edits third-party Neovim profiles** or symlinked configurations. `--no-nvim` skips it.
+
 ### Neovim inside Zellij
 
 **Every new Ghostty terminal starts a fresh Zellij session with an ordinary Zsh shell** instead of attaching to the last session. Auto-reattaching to `hackjitsu` or `hackjitsu-v2` previously brought back stale Neovim screens and even editor-only panes. The new automatically created sessions have unique short names like `hj-12345` and disable Zellij's *session serialization* for this private profile. The **short** names avoid a known macOS UNIX socket path limit. The private Zellij config also uses `on_force_close "quit"`: **when Ghostty actually closes**, its temporary session ends rather than accumulating detached sessions; **hiding** the dropdown does not trigger this. **Existing Zellij sessions are not deleted, killed or altered**; the old sessions can still be resumed deliberately by running `wave [session-name]` (or `zellij attach <session-name>`). The dropdown shortcut only shows/hides the running Ghostty process and keeps the current shell until Ghostty is restarted. When hiding a dropdown **while Neovim is open**, the editor stays open because Ghostty intentionally preserves its surface; to return to the shell you must exit Neovim normally. On a full restart, a different fresh session starts with Zsh.
@@ -93,7 +103,7 @@ Pentesting examples are intended for systems you are authorized to assess. Nothi
 
 ## Neovim + LazyVim
 
-The `nvim/` directory contains a portable starter configuration based on the official [LazyVim starter](https://github.com/LazyVim/starter) (Apache-2.0; license in `nvim/LICENSE`). The installer copies it to `~/.config/nvim` **only when that path does not already exist**. Existing editor configurations (including symlinks) are left untouched; use `--no-nvim` to skip this feature entirely.
+The `nvim/` directory contains a portable starter configuration based on the official [LazyVim starter](https://github.com/LazyVim/starter) (Apache-2.0; license in `nvim/LICENSE`). The installer copies it to `~/.config/nvim` only when no profile exists. On upgrade it can add the built-in ANSI log viewer to an **existing Hack-Jitsu-managed profile** (after backing up its entrypoint), without replacing custom plugins. Unrelated third-party editor configurations and symlinks are left untouched; use `--no-nvim` to skip entirely.
 
 Run `nvim` after installation. On first installation, the installer normally prepares LazyVim plugins from GitHub, so network access is required. If setup is skipped or fails, the first Neovim launch will download plugins. Use `:LazyHealth` to verify your setup, `:Lazy` for plugin management and `:LazyExtras` to activate optional language modules. LazyVim currently requires Neovim 0.11.2+, Git, curl, a C compiler, and tree-sitter-cli; the installed Nerd Font, fzf, fd, ripgrep and lazygit improve the experience. If your Mac does not have Xcode Command Line Tools, install them via your company-approved method.
 

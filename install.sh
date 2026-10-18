@@ -436,8 +436,43 @@ copy_asset() {
 
 install_neovim_config() {
   local dest="$CONFIG_HOME/nvim"
-  if [ -e "$dest" ] || [ -L "$dest" ]; then
-    echo "SKIP existing Neovim config: $dest (left untouched)"
+  if [ -L "$dest" ]; then
+    echo "SKIP symlinked Neovim config: $dest (left untouched)"
+    return
+  fi
+  if [ -e "$dest" ]; then
+    # Upgrade ONLY configurations originally supplied by Hack-Jitsu.
+    # Never alter other Neovim/LazyVim profiles or a user's private setup.
+    if [ ! -d "$dest" ] || [ ! -f "$dest/init.lua" ] ||
+       [ -L "$dest/init.lua" ] || [ -L "$dest/lua" ] ||
+       [ -L "$dest/lua/config" ] ||
+       ! grep -Fq 'Portable LazyVim configuration for Ghostty Hack-Jitsu Edition' "$dest/init.lua" ||
+       ! grep -Fxq 'require("config.lazy")' "$dest/init.lua"; then
+      echo "SKIP existing Neovim config: $dest (left untouched)"
+      return
+    fi
+    if ! grep -Fq 'require("config.ansi").setup()' "$dest/init.lua"; then
+      if [ "$DRY_RUN" -eq 1 ]; then
+        echo "PLAN enable native ANSI log view in managed $dest/init.lua (with backup)"
+      else
+        local temp_init
+        mkdir -p "$BACKUP"
+        cp -p "$dest/init.lua" "$BACKUP/nvim-init-before-ansi"
+        temp_init="$(mktemp "$dest/init.lua.hj.XXXXXX")"
+        awk '
+          $0 == "require(\"config.lazy\")" && !installed {
+            print "-- Hide ANSI color codes in logs without altering original files."
+            print "require(\"config.ansi\").setup()"
+            installed = 1
+          }
+          {print}
+        ' "$dest/init.lua" > "$temp_init"
+        chmod "$(stat -f %Lp "$dest/init.lua")" "$temp_init" 2>/dev/null || chmod 600 "$temp_init"
+        mv "$temp_init" "$dest/init.lua"
+        echo "UPDATED managed Neovim ANSI log view (init.lua backup in $BACKUP)"
+      fi
+    fi
+    copy_asset "$ROOT/nvim/lua/config/ansi.lua" "$dest/lua/config/ansi.lua" nvim-ansi
     return
   fi
   if [ "$DRY_RUN" -eq 1 ]; then
@@ -448,7 +483,6 @@ install_neovim_config() {
   cp -R "$ROOT/nvim" "$dest"
   echo "COPY bundled LazyVim starter -> $dest"
 }
-
 # Complete the initial Neovim/LazyVim download during installation,
 # not unexpectedly when the first real log file is opened in the editor.
 prepare_lazyvim() {

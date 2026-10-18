@@ -38,6 +38,8 @@ test -f "$HOME/.config/ghostty-hackjitsu/shell.zsh"
 test -f "$HOME/.config/nvim/init.lua"
 test -f "$HOME/.config/nvim/lua/config/lazy.lua"
 test -f "$HOME/.config/nvim/LICENSE"
+test -f "$HOME/.config/nvim/lua/config/ansi.lua"
+grep -Fq 'require("config.ansi").setup()' "$HOME/.config/nvim/init.lua"
 grep -qx '# existing profile' "$HOME/.zshrc"
 test -f "$HOME/.config/ghostty-hackjitsu/zsh/.zshrc"
 ZDOTDIR="$HOME/.config/ghostty-hackjitsu/zsh" zsh -ic 'whence -w wave hjhelp hj' >"$TMP/zsh-functions.log" 2>&1
@@ -70,6 +72,26 @@ HOME="$TMP/existing-home" XDG_CONFIG_HOME="$TMP/existing-home/.config" \
   bash "$ROOT/install.sh" --no-quit --no-brew --no-shell >"$TMP/existing.log"
 grep -qx 'private user config' "$TMP/existing-home/.config/nvim/init.lua"
 test ! -e "$TMP/existing-home/.config/nvim/lua/config/lazy.lua"
+# An existing Hack-Jitsu managed profile is safely upgraded, without
+# clobbering additional user settings, and exactly one init.lua backup.
+managed="$TMP/managed-home"
+mkdir -p "$managed/.config/nvim/lua/config"
+printf '%s\n' '-- Portable LazyVim configuration for Ghostty Hack-Jitsu Edition.' \
+  'require("config.lazy")' '-- extra personal managed option' > "$managed/.config/nvim/init.lua"
+printf '%s\n' '-- preserved plugin' > "$managed/.config/nvim/lua/config/lazy.lua"
+HOME="$managed" XDG_CONFIG_HOME="$managed/.config" XDG_STATE_HOME="$managed/.local/state" \
+  bash "$ROOT/install.sh" --no-quit --no-brew --no-shell >"$TMP/managed-first.log"
+grep -Fq 'require("config.ansi").setup()' "$managed/.config/nvim/init.lua"
+cmp -s "$ROOT/nvim/lua/config/ansi.lua" "$managed/.config/nvim/lua/config/ansi.lua"
+grep -Fq 'extra personal managed option' "$managed/.config/nvim/init.lua"
+grep -Fq 'preserved plugin' "$managed/.config/nvim/lua/config/lazy.lua"
+test "$(grep -Fc 'require("config.ansi").setup()' "$managed/.config/nvim/init.lua")" -eq 1
+test -f "$(find "$managed/.local/state/ghostty-hackjitsu/backups" -name nvim-init-before-ansi | head -1)"
+HOME="$managed" XDG_CONFIG_HOME="$managed/.config" XDG_STATE_HOME="$managed/.local/state" \
+  bash "$ROOT/install.sh" --no-quit --no-brew --no-shell >"$TMP/managed-again.log"
+test "$(grep -Fc 'require("config.ansi").setup()' "$managed/.config/nvim/init.lua")" -eq 1
+test "$(find "$managed/.local/state/ghostty-hackjitsu/backups" -name nvim-init-before-ansi | wc -l | tr -d ' ')" -eq 1
+# A third-party editor, even with an init.lua, stays untouched (above).
 # --no-nvim installs other assets but never creates Neovim's config.
 mkdir -p "$TMP/skip-home"
 HOME="$TMP/skip-home" XDG_CONFIG_HOME="$TMP/skip-home/.config" \
