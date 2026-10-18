@@ -129,7 +129,14 @@ case "$*" in
     fi
     mkdir -p "$XDG_DATA_HOME/nvim/site/parser"
     touch "$XDG_DATA_HOME/nvim/site/parser/lua.so"
-    echo 'HJ_NVIM_BOOTSTRAP_READY: verified 23 parsers with tree-sitter-cli'
+    if [ "${HJ_TS_BUILD_ONLY:-0}" = 1 ]; then
+      echo 'HJ_NVIM_BOOTSTRAP_BUILT: compiled 23 parsers'
+    elif [ "${HJ_TS_VERIFY_ONLY:-0}" = 1 ]; then
+      echo 'HJ_NVIM_BOOTSTRAP_READY: verified 23 parsers in fresh Neovim process'
+    else
+      echo 'ERROR: missing verification phase' >&2
+      exit 1
+    fi
     ;;
 esac
 exit 0
@@ -139,15 +146,25 @@ export HJ_TEST_NVIM_LOG="$TMP/nvim.log"
 : > "$HJ_TEST_NVIM_LOG"
 bash "$ROOT/install.sh" --no-quit --no-shell >"$TMP/lazy-initial.log"
 grep -Fq 'Validating LazyVim parser compilation' "$TMP/lazy-initial.log"
-grep -Fq 'LazyVim parsers compiled and validated' "$TMP/lazy-initial.log"
+if ! grep -Fq 'LazyVim parsers compiled and loaded in separate Neovim processes' "$TMP/lazy-initial.log"; then
+  echo "FAIL: bootstrap reported no complete parser verification" >&2
+  tail -n 32 "$TMP/lazy-initial.log" >&2
+  echo "COMPILER_LOG + RELATED LINES:" >&2
+  grep -Ei 'Validating Lazy|LazyVim|HJ_NVIM|parser|tree-sitter|nvim-bootstrap' "$TMP/lazy-initial.log" | tail -24 >&2 || true
+  wc -c "$XDG_STATE_HOME/ghostty-hackjitsu/nvim-bootstrap.log" >&2 || true
+  cat "$XDG_STATE_HOME/ghostty-hackjitsu/nvim-bootstrap.log" >&2 || true
+  echo "NVIM_CALLS:" >&2
+  cat "$HJ_TEST_NVIM_LOG" >&2
+  exit 1
+fi
 test -f "$XDG_STATE_HOME/ghostty-hackjitsu/nvim-bootstrap.log"
 test "$(stat -f %Lp "$XDG_STATE_HOME/ghostty-hackjitsu/nvim-bootstrap.log" 2>/dev/null || stat -c %a "$XDG_STATE_HOME/ghostty-hackjitsu/nvim-bootstrap.log")" = 600
 test "$(grep -Fc -- '--headless +Lazy! sync' "$HJ_TEST_NVIM_LOG")" -eq 1
-test "$(grep -Fc -- '--headless +luafile ' "$HJ_TEST_NVIM_LOG")" -ge 1
+test "$(grep -Fc -- '--headless +luafile ' "$HJ_TEST_NVIM_LOG")" -ge 2
 bash "$ROOT/install.sh" --no-quit --no-shell >"$TMP/lazy-repeat.log"
-grep -Fq 'LazyVim parsers compiled and validated' "$TMP/lazy-repeat.log"
+grep -Fq 'LazyVim parsers compiled and loaded in separate Neovim processes' "$TMP/lazy-repeat.log"
 test "$(grep -Fc -- '--headless +Lazy! sync' "$HJ_TEST_NVIM_LOG")" -eq 1
-test "$(grep -Fc -- '--headless +luafile ' "$HJ_TEST_NVIM_LOG")" -ge 1
+test "$(grep -Fc -- '--headless +luafile ' "$HJ_TEST_NVIM_LOG")" -ge 2
 # Plugin sources can exist while parsers fail. A zero exit code from nvim
 # MUST NOT trigger a false success message.
 HJ_TEST_NVIM_FAIL=1 bash "$ROOT/install.sh" --no-quit --no-shell >"$TMP/lazy-failure.log" 2>&1

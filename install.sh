@@ -204,6 +204,7 @@ check_formula "fzf selector" fzf fzf
 check_formula "Zellij multiplexer" zellij zellij
 check_file_exists "$HJ_CONFIG/shell.zsh" "Shell helpers installed"
 check_file_exists "$HJ_CONFIG/ui-setup.sh" "Interactive terminal appearance wizard installed"
+check_file_exists "$HJ_CONFIG/nvim-doctor.sh" "Current-shell Neovim Tree-sitter diagnostics installed"
 check_file_exists "$HJ_CONFIG/hj-wizard.py" "Preview-first Hack-Jitsu wizard installed"
 check_file_exists "$HJ_CONFIG/p10k-setup.sh" "Isolated Powerlevel10k setup helper installed"
 check_file_exists "$GHOSTTY_CONFIG/hack-jitsu-red-icon.png" "Transparent Hack-Jitsu red app icon"
@@ -306,6 +307,10 @@ if [ "$CHECK_NVIM" -eq 1 ]; then
   fi
   check_file_exists "$NVIM_CONFIG/init.lua" "Neovim entry point"
   check_file_exists "$NVIM_CONFIG/lua/config/lazy.lua" "LazyVim bootstrap config"
+  if [ -f "$NVIM_CONFIG/init.lua" ] &&
+     grep -Fq 'Portable LazyVim configuration for Ghostty Hack-Jitsu Edition' "$NVIM_CONFIG/init.lua"; then
+    check_file_exists "$NVIM_CONFIG/lua/plugins/hj-treesitter-policy.lua" "No background Tree-sitter parser installation policy"
+  fi
   if [ -d "$DATA_HOME/nvim/lazy/LazyVim" ]; then
     check_pass "LazyVim plugin sources downloaded"
     if [ -f "$DATA_HOME/nvim/site/parser/lua.so" ]; then
@@ -516,6 +521,7 @@ install_neovim_config() {
     if [ ! -d "$dest" ] || [ ! -f "$dest/init.lua" ] ||
        [ -L "$dest/init.lua" ] || [ -L "$dest/lua" ] ||
        [ -L "$dest/lua/config" ] ||
+       [ -L "$dest/lua/plugins" ] ||
        ! grep -Fq 'Portable LazyVim configuration for Ghostty Hack-Jitsu Edition' "$dest/init.lua" ||
        ! grep -Fxq 'require("config.lazy")' "$dest/init.lua"; then
       echo "SKIP existing Neovim config: $dest (left untouched)"
@@ -544,6 +550,14 @@ install_neovim_config() {
     fi
     copy_asset "$ROOT/nvim/lua/config/ansi.lua" "$dest/lua/config/ansi.lua" nvim-ansi
     copy_asset "$ROOT/nvim/lua/config/bootstrap.lua" "$dest/lua/config/bootstrap.lua" nvim-bootstrap
+    # Never clobber a user's own Tree-sitter plugin policy. Managed profiles
+    # missing this file get the safe no-background-install policy.
+    local policy_dest="$dest/lua/plugins/hj-treesitter-policy.lua"
+    if [ ! -e "$policy_dest" ] && [ ! -L "$policy_dest" ]; then
+      copy_asset "$ROOT/nvim/lua/plugins/hj-treesitter-policy.lua" "$policy_dest" nvim-ts-policy
+    elif ! cmp -s "$ROOT/nvim/lua/plugins/hj-treesitter-policy.lua" "$policy_dest"; then
+      status WARN "Existing Neovim Tree-sitter policy preserved: $policy_dest"
+    fi
     return
   fi
   if [ "$DRY_RUN" -eq 1 ]; then
@@ -597,20 +611,29 @@ prepare_lazyvim() {
   # First download/exit, then in a separate process compile and verify parsers.
   if [ ! -d "$lazy_dir" ] || [ ! -d "$data/lazy/nvim-treesitter" ]; then
     status INFO "First-run Neovim plugin download (separate headless session)..."
-    if ! nvim --headless '+Lazy! sync' '+qa!' >"$log" 2>&1; then
+    if ! HJ_TS_BUILD_ONLY=1 nvim --headless '+Lazy! sync' '+qa!' >"$log" 2>&1; then
       status WARN "LazyVim download/sync failed; see $log"
       tail -n 18 "$log" >&2
       NVIM_BOOTSTRAP_ERROR=1
       return 0
     fi
   fi
-  if nvim --headless "+luafile $bootstrap" >>"$log" 2>&1 &&
+  # Independent processes are REQUIRED:
+  # 1) LazyVim plugin sync
+  # 2) build Tree-sitter parsers, waiting for compiler completion
+  # 3) load compiled binaries in a fresh Neovim runtime.
+  # Disable LazyVim's background parser auto-installs for both stages so they
+  # cannot race over the same tree-sitter-*-tmp cache directories (ENOTEMPTY).
+  if HJ_TS_BUILD_ONLY=1 nvim --headless "+luafile $bootstrap" >>"$log" 2>&1 &&
+     grep -Fq 'HJ_NVIM_BOOTSTRAP_BUILT:' "$log" &&
+     ! grep -Eiq 'HJ_NVIM_BOOTSTRAP_FAILED|Failed to compile parser|Error during tree-sitter build|ENOTEMPTY|Error detected|E5108|FATAL' "$log" &&
+     HJ_TS_VERIFY_ONLY=1 nvim --headless "+luafile $bootstrap" >>"$log" 2>&1 &&
      grep -Fq 'HJ_NVIM_BOOTSTRAP_READY:' "$log" &&
-     ! grep -Eq 'HJ_NVIM_BOOTSTRAP_FAILED|Failed to compile parser|Error during "tree-sitter build"|Error detected|E5108|FATAL' "$log"; then
-    status PASS "LazyVim parsers compiled and validated (including Lua)."
+     ! grep -Eiq 'HJ_NVIM_BOOTSTRAP_FAILED|Failed to compile parser|Error during tree-sitter build|ENOTEMPTY|Error detected|E5108|FATAL' "$log"; then
+    status PASS "LazyVim parsers compiled and loaded in separate Neovim processes."
   else
     status WARN "LazyVim is not fully ready. A parser or plugin failed to compile:"
-    tail -n 18 "$log" >&2
+    tail -n 22 "$log" >&2
     status WARN "Full diagnostic log: $log"
     status WARN "Run ./install.sh again after fixing the error, or :TSUpdate inside Neovim."
     NVIM_BOOTSTRAP_ERROR=1
@@ -667,6 +690,7 @@ copy_asset "$ROOT/ghostty/themes/hack-jitsu" "$GHOSTTY_DEST/themes/hack-jitsu" g
 copy_asset "$ROOT/ghostty/shaders/hack-jitsu-cursor.glsl" "$GHOSTTY_DEST/shaders/hack-jitsu-cursor.glsl" ghostty-shader
 copy_asset "$ROOT/ghostty/hack-jitsu-watermark.png" "$GHOSTTY_DEST/hack-jitsu-watermark.png" ghostty-watermark
 copy_asset "$ROOT/shell/hj.zsh" "$HJ_DEST/shell.zsh" hj-shell
+copy_asset "$ROOT/tools/nvim-doctor.sh" "$HJ_DEST/nvim-doctor.sh" nvim-doctor
 copy_asset "$ROOT/shell/hj-completion.zsh" "$HJ_DEST/completion.zsh" hj-completion
 copy_asset "$ROOT/shell/hj-logo.txt" "$HJ_DEST/logo.txt" hj-logo
 if [ "$DRY_RUN" -eq 1 ]; then

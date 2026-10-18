@@ -21,6 +21,22 @@ hjsetup() {
   fi
 }
 
+# Preserve current XDG/NVIM_APPNAME environment so a failing Ghostty
+# terminal can diagnose its *actual* Neovim profile, not a generic Mac shell.
+hjdoctor() {
+  if [[ "${1:-}" != nvim ]]; then
+    print -u2 'Usage: hjdoctor nvim [--file path] [--repair]'
+    return 2
+  fi
+  shift
+  local script="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty-hackjitsu/nvim-doctor.sh"
+  if [[ ! -r "$script" ]]; then
+    print -u2 "hjdoctor: run install.sh first, or use the repo's tools/nvim-doctor.sh"
+    return 1
+  fi
+  command bash "$script" "$@"
+}
+
 hjkeys() {
   print -P '%B%F{#ec1313}HACK-JITSU · macOS Zellij keys%f%b'
   print '  ⌥ Option = Alt  |  ⌃ Control = Ctrl'
@@ -69,6 +85,7 @@ hj() {
   printf '  hjsetup            Visual terminal/Zellij preview wizard\n'
   printf '  hjsetup --all      Run P10K wizard first, then Hack-Jitsu wizard\n'
   printf '  hjp10k             Reconfigure isolated Powerlevel10k prompt\n'
+  printf '  hjdoctor nvim      Diagnose current-shell Neovim/Tree-sitter build\n'
   printf '  hjkeys             Mac key guide (Option = Alt)\n'
   printf '  ls / ll / la / lt  File lists with colors and icons\n'
   printf '  Tab                Interactive argument completion\n'

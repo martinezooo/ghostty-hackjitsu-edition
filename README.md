@@ -175,7 +175,20 @@ This is enabled for **new and existing Hack-Jitsu-managed LazyVim configs**. The
 
 **Neovim is no longer wrapped in `zellij edit --in-place`.** Typing `nvim filename` launches ordinary Neovim from the active shell. After `Esc`, `:q!`, Enter, the same shell prompt returns; quitting Neovim must not close the Zellij pane. New pane: **Ctrl+P**, then **N**. New tab: **Ctrl+T**, then **N**. Use `wave <session-name>` outside Zellij only when you intentionally want to resume an old session with its files/panes.
 
-Fresh Hack-Jitsu installs initialize LazyVim plugins **and compile Tree-sitter language parsers** during installation, so opening the first log does not unexpectedly initiate compilation. This requires `tree-sitter-cli >=0.26.1`, a working C compiler, and internet on first setup. The installer runs an actual parser-load test, reports failures, and keeps the full log in `~/.local/state/ghostty-hackjitsu/nvim-bootstrap.log` (mode 0600). Use `--no-lazy-sync` to defer this work, or retry with `./install.sh --no-quit` if your plugins were partially installed. The `--check` command is read-only and verifies toolchain version and presence of the compiled Lua parser. Third-party Neovim configurations are never modified.
+Fresh Hack-Jitsu installs download LazyVim and compile Tree-sitter grammars **before opening files**. We reproduced the previous `Failed to compile parser` and `ENOTEMPTY: Could not rename temp` errors: LazyVim's own background parser installation and our installer tried writing to the **same Tree-sitter cache folders simultaneously**. The managed profile now disables background grammar builds (plugin `build=false`, `ensure_installed={}`) and uses three separate Neovim sessions: sync plugins, compile the 23 required parsers, and verify all compiled parsers load in a **fresh Neovim process**. Plain `nvim plik.txt` should therefore no longer trigger competing parser installations. Additional languages can be installed with `:TSInstall <lang>`, and updated intentionally with `:TSUpdate`.
+
+Requirements: `tree-sitter-cli >= 0.26.1`, working Clang/C compiler and internet access for first setup. Compile failures now show a warning, not false PASS, and the full local error log is stored in `~/.local/state/ghostty-hackjitsu/nvim-bootstrap.log` with permissions 0600. `--no-lazy-sync` intentionally skips this setup; `--check` only reads machine state. Unrelated personal Neovim configurations are never overwritten.
+
+**Diagnose the actual Neovim from the Ghostty pane where it fails:**
+
+```bash
+hjdoctor nvim                    # Neovim config paths, parser and compiler diagnostics
+hjdoctor nvim --file plik.txt    # reopen that file read-only and capture failures
+hjdoctor nvim --repair           # explicit repair only for Hack-Jitsu-managed profiles
+```
+
+Before installing the shell helper, you can run `bash ~/ghostty-hackjitsu-edition/tools/nvim-doctor.sh`. It never clears parsers or caches and refuses repair of private Neovim configurations. Diagnostics remain local under `~/.local/state/ghostty-hackjitsu/nvim-doctor.*` (mode 0600). Inspect logs before sharing them: file paths and CLI output may contain private project data. The same Mac can run different Neovim profiles depending on its Ghostty/Zsh environment, so diagnosing the correct pane matters.
+
 
 ## Hack-Jitsu shell prompt
 
