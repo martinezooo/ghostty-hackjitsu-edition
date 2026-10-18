@@ -6,6 +6,26 @@ elif [[ -x /usr/local/bin/brew ]] && [[ ":$PATH:" != *":/usr/local/bin:"* ]]; th
   path=(/usr/local/bin /usr/local/sbin $path)
 fi
 export PATH
+
+# Persistent shell history. ZDOTDIR isolates startup files, but should not
+# discard a user's command history when moving from regular Zsh to Ghostty.
+# Reuse existing ~/.zsh_history when writable; otherwise keep a private
+# Hack-Jitsu history in XDG state. Neither file is included in this repo.
+HISTSIZE=50000
+SAVEHIST=50000
+if [[ -f "$HOME/.zsh_history" && -r "$HOME/.zsh_history" && -w "$HOME/.zsh_history" ]]; then
+  HISTFILE="$HOME/.zsh_history"
+else
+  _hj_history_dir="${XDG_STATE_HOME:-$HOME/.local/state}/ghostty-hackjitsu"
+  ( umask 077; mkdir -p -m 700 "$_hj_history_dir" ) 2>/dev/null || true
+  if [[ -d "$_hj_history_dir" && -w "$_hj_history_dir" ]]; then
+    HISTFILE="$_hj_history_dir/zsh_history"
+    ( umask 077; touch "$HISTFILE" ) 2>/dev/null || true
+  fi
+  unset _hj_history_dir
+fi
+setopt SHARE_HISTORY EXTENDED_HISTORY HIST_IGNORE_DUPS HIST_IGNORE_SPACE HIST_REDUCE_BLANKS
+
 # Restore Ghostty's shell integration without ZDOTDIR auto-injection.
 if [[ -n "${GHOSTTY_RESOURCES_DIR:-}" && -r "$GHOSTTY_RESOURCES_DIR/shell-integration/zsh/ghostty-integration" ]]; then
   source "$GHOSTTY_RESOURCES_DIR/shell-integration/zsh/ghostty-integration"
