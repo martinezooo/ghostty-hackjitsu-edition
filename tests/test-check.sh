@@ -27,6 +27,8 @@ case "$1" in
       'initial-window = false' \
       'window-save-state = never' \
       'theme = hack-jitsu' \
+      'macos-icon = custom' \
+      'macos-custom-icon = /fixture/hack-jitsu-red-icon.png' \
       'font-family = JetBrainsMono Nerd Font Mono' \
       'quick-terminal-size = 55%,85%' \
       'command = /bin/sh -c ZDOTDIR=somewhere' \

@@ -20,6 +20,7 @@ STRICT_CHECK=0
 USER_INSTALL=-1
 QUIT_GHOSTTY=1
 RELAUNCH_GHOSTTY=1
+NO_LAUNCHER=0
 NVIM_BOOTSTRAP_ERROR=0
 
 # Color is enabled only for an interactive terminal (or an explicit test
@@ -50,11 +51,12 @@ status() {
 
 usage() {
   cat <<'EOF'
-Usage: ./install.sh [--dry-run] [--check] [--no-quit] [--user] [--system] [--no-brew] [--no-shell] [--no-nvim] [--no-lazy-sync] [--setup] [--no-relaunch] [--tools] [--strict]
+Usage: ./install.sh [--dry-run] [--check] [--no-quit] [--user] [--system] [--no-brew] [--no-shell] [--no-nvim] [--no-lazy-sync] [--setup] [--no-relaunch] [--no-launcher] [--tools] [--strict]
   --dry-run   Show intended changes without writing or installing anything
   --check     Verify installed packages and settings without changing anything
   --no-quit   Leave Ghostty running; skip restart (safe for active sessions)
   --no-relaunch Stop Ghostty after installation instead of reopening it
+  --no-launcher Skip separate red-icon Finder launcher in ~/Applications
   --user      Force per-user mode: no sudo; use ~/Applications for Ghostty
   --system    Force system-wide casks (needs administrator rights)
   --strict    Treat verification warnings as errors
@@ -77,6 +79,7 @@ for arg in "$@"; do
       echo "       Run ./install.sh, --no-quit to retain it, or --no-relaunch to stop it." >&2
       exit 2 ;;
     --no-relaunch) RELAUNCH_GHOSTTY=0 ;;
+    --no-launcher) NO_LAUNCHER=1 ;;
     --user) USER_INSTALL=1 ;;
     --system) USER_INSTALL=0 ;;
     --strict) STRICT_CHECK=1 ;;
@@ -165,6 +168,12 @@ if [ -n "$GHOSTTY" ] && [ -x "$GHOSTTY" ]; then
     check_fail "Ghostty effective configuration does not match Hack-Jitsu headless profile"
     check_fail "Review ~/.config/ghostty/config and any overrides in ~/Library/Application Support/com.mitchellh.ghostty/"
   fi
+  if grep -Fq 'macos-icon = custom' <<< "$effective" &&
+     grep -Fq 'macos-custom-icon =' <<< "$effective"; then
+    check_pass "Runtime red icon configured (headless mode hides Dock icon)"
+  else
+    check_warn "Ghostty runtime icon not set to custom; rerun install.sh"
+  fi
   bindings="$("$GHOSTTY" +list-keybinds 2>/dev/null)" || bindings=""
   if grep -Eq 'alt\+tab=toggle_quick_terminal' <<< "$bindings"; then
     check_pass "Dropdown Option+Tab binding active"
@@ -208,6 +217,15 @@ check_file_exists "$HJ_CONFIG/nvim-doctor.sh" "Current-shell Neovim Tree-sitter 
 check_file_exists "$HJ_CONFIG/hj-wizard.py" "Preview-first Hack-Jitsu wizard installed"
 check_file_exists "$HJ_CONFIG/p10k-setup.sh" "Isolated Powerlevel10k setup helper installed"
 check_file_exists "$GHOSTTY_CONFIG/hack-jitsu-red-icon.png" "Transparent Hack-Jitsu red app icon"
+if [ "$NO_LAUNCHER" -eq 0 ]; then
+  local launcher="${HJ_BRANDED_APP_DIR:-$HOME/Applications}/Hack-Jitsu Ghostty.app"
+  if [ -f "$launcher/Contents/Resources/.hackjitsu-managed-launcher" ] &&
+     /usr/bin/codesign --verify --deep --strict "$launcher" >/dev/null 2>&1; then
+    check_pass "Red Finder launcher installed and signed: $launcher"
+  else
+    check_warn "Red Finder launcher missing: $launcher (rerun ./install.sh)"
+  fi
+fi
 check_file_exists "$HJ_CONFIG/restart-ghostty.sh" "Controlled Ghostty app relaunch helper installed"
 check_file_exists "$HJ_CONFIG/ghostty-template.conf" "Portable Ghostty base preserved"
 check_file_exists "$HJ_CONFIG/zellij/template.kdl" "Portable Zellij base preserved"
@@ -699,6 +717,18 @@ else
   bash "$HJ_DEST/ui-setup.sh" --apply
 fi
 
+# Ghostty's signed Finder icon cannot be safely changed. Instead install an
+# independent ad-hoc-signed, red Hack-Jitsu Ghostty.app Finder launcher.
+if [ "$NO_LAUNCHER" -eq 0 ]; then
+  if [ "$DRY_RUN" -eq 1 ]; then
+    bash "$ROOT/tools/install-app-launcher.sh" --dry-run
+  else
+    bash "$ROOT/tools/install-app-launcher.sh"
+  fi
+else
+  status INFO "--no-launcher: branded Finder launcher skipped."
+fi
+
 for file in "$ROOT"/cheats/*.cheat; do
   [ -f "$file" ] || continue
   copy_asset "$file" "$HJ_DEST/cheats/$(basename "$file")" "cheat-$(basename "$file")"
@@ -800,6 +830,9 @@ echo "   Tab      Fuzzy completion menu with argument descriptions"
 echo "   Zellij   Starts in a fresh shell session"
 echo "   hjsetup  Configure title, Zellij bar and Mac Option key"
 echo "   hjkeys   Show Mac-oriented Zellij shortcuts"
+echo "   hjname   Rename current Zellij session without closing any panes"
+echo "   Hack-Jitsu Ghostty.app  Red Finder launcher in ~/Applications"
+echo "   Original Ghostty.app keeps its official signed icon."
 echo "   wave     Manually reattach an older Zellij session"
 if [ "$NO_NVIM" -eq 0 ]; then
   echo "   nvim     Start LazyVim (plugins prepared by installer when online)"

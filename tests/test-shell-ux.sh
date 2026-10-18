@@ -9,6 +9,7 @@ export XDG_STATE_HOME="$TMP/home/.local/state"
 export XDG_CACHE_HOME="$TMP/home/.cache" HOMEBREW_PREFIX="$TMP/prefix"
 export PATH="$TMP/bin:$PATH"
 export HJ_TEST_EDIT_LOG="$TMP/zellij-edit.log"
+export HJ_TEST_SESSIONS_FILE="$TMP/zellij-running"
 mkdir -p "$TMP/bin" "$TMP/prefix/opt/fzf-tab/share/fzf-tab" \
   "$TMP/prefix/share/zsh-autosuggestions" "$TMP/prefix/share/zsh-syntax-highlighting" "$HOME"
 cat > "$TMP/bin/eza" <<'STUB'
@@ -25,6 +26,10 @@ exit 0
 STUB
 cat > "$TMP/bin/zellij" <<'STUB'
 #!/bin/sh
+if [ "$1" = list-sessions ] && [ "$2" = -s ]; then
+  [ ! -f "$HJ_TEST_SESSIONS_FILE" ] || cat "$HJ_TEST_SESSIONS_FILE"
+  exit 0
+fi
 printf '%s\n' "$*" >> "$HJ_TEST_EDIT_LOG"
 if [ "$1" = --config ] && [ "$3" = setup ] && [ "$4" = --check ]; then
   echo '[CONFIG FILE]: Well defined.'
@@ -89,4 +94,22 @@ ZDOTDIR="$HOME" TERM_PROGRAM=Apple_Terminal TERM=xterm-256color zsh -ic '
   (( $+functions[hjfetch] )) && exit 24
   true
 ' >"$TMP/other.log" 2>&1 || { cat "$TMP/other.log"; exit 1; }
+# Rename an OLD/active hj-41648 session without shutting down its panes.
+: > "$HJ_TEST_SESSIONS_FILE"
+ZELLIJ=1 ZELLIJ_SESSION_NAME=hj-41648 TERM_PROGRAM=ghostty HJ_AUTO_ZELLIJ=0 zsh -ic 'hjname' >"$TMP/hjname-first.log" 2>&1
+user="$(id -un)"
+grep -Fq "action rename-session $user" "$HJ_TEST_EDIT_LOG"
+grep -Fq "Zellij session renamed to $user" "$TMP/hjname-first.log"
+# When the username is already occupied, select a second distinct label.
+printf '%s\n' "$user" > "$HJ_TEST_SESSIONS_FILE"
+ZELLIJ=1 ZELLIJ_SESSION_NAME=hj-41648 TERM_PROGRAM=ghostty HJ_AUTO_ZELLIJ=0 zsh -ic 'hjname' >"$TMP/hjname-second.log" 2>&1
+grep -Fq "action rename-session $user-2" "$HJ_TEST_EDIT_LOG"
+grep -Fq "Zellij session renamed to $user-2" "$TMP/hjname-second.log"
+# Outside Zellij there is nothing to rename.
+if TERM_PROGRAM=ghostty HJ_AUTO_ZELLIJ=0 zsh -ic 'hjname' >"$TMP/hjname-no-zellij.log" 2>&1; then
+  echo 'hjname unexpectedly succeeded outside Zellij' >&2
+  exit 1
+fi
+grep -Fq 'hjname: run inside Zellij' "$TMP/hjname-no-zellij.log"
+echo 'PASS: live Zellij session rename with username, safe collision suffix and no restart'
 echo 'PASS: eza aliases, Fastfetch logo, fzf-tab ordered before highlighting, private Zsh isolation'

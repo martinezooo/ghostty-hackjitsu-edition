@@ -37,6 +37,39 @@ hjdoctor() {
   command bash "$script" "$@"
 }
 
+# Re-label an OPEN Zellij hj-12345 session without closing its panes.
+hjname() {
+  if [[ -z "${ZELLIJ:-}" ]]; then
+    print -u2 'hjname: run inside Zellij.'
+    return 2
+  fi
+  if (( ! $+commands[zellij] )); then
+    print -u2 'hjname: zellij missing.'
+    return 127
+  fi
+  local user="$(id -un)" target existing suffix=2 current="${ZELLIJ_SESSION_NAME:-}"
+  user="${user//[^[:alnum:]_-]/_}"
+  user="${user[1,24]}"
+  [[ -n "$user" ]] || user=terminal
+  target="$user"
+  existing="$(command zellij list-sessions -s 2>/dev/null || true)"
+  while [[ "$target" != "$current" ]] &&
+        print -r -- "$existing" | command grep -Fxq -- "$target"; do
+    target="${user}-${suffix}"
+    (( suffix++ ))
+  done
+  if [[ "$target" == "$current" ]]; then
+    print "Zellij session already named: $target"
+    return 0
+  fi
+  if command zellij action rename-session "$target"; then
+    print "Zellij session renamed to $target (panes preserved)"
+  else
+    print -u2 'hjname: failed to rename this Zellij session.'
+    return 1
+  fi
+}
+
 hjkeys() {
   print -P '%B%F{#ec1313}HACK-JITSU · macOS Zellij keys%f%b'
   print '  ⌥ Option = Alt  |  ⌃ Control = Ctrl'
@@ -91,6 +124,7 @@ hj() {
   printf '  Tab                Interactive argument completion\n'
   printf '  Zellij             Starts a new, clean session in Ghostty\n'
   printf '  wave [name]        Reattach a previous session manually\n'
+  printf '  hjname             Rename current Zellij session in place\n'
   printf '  nvim               Start Neovim + LazyVim\n'
   printf '  Ctrl+P then N      Open a second Zellij pane with shell\n'
   printf '\n'

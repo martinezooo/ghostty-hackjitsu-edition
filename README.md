@@ -126,29 +126,51 @@ users who don't want it. The public repository includes no personal P10K
 configuration. To restore the original Hack-Jitsu prompt, remove the
 private `~/.config/ghostty-hackjitsu/zsh/enable-p10k` marker.
 
-### Red Hack-Jitsu app icon
+### Red icon on staff Macs: signed Finder launcher
 
-The bundled 1024×1024 RGBA icon is derived from the user-supplied red
-Hack-Jitsu Ghostty artwork, with symmetric inset and **transparent**
-corners (no surrounding black/white square). Ghostty itself supports
-this natively: the generated local config uses `macos-icon = custom`
-and an absolute `macos-custom-icon` path under
-`~/.config/ghostty/`. **We do not modify the signed Ghostty.app
-bundle**, so macOS updates remain safe.
+Ghostty's official `macos-icon = custom` option changes only the
+**running Dock/app-switcher icon**, not the `Ghostty.app` icon in Finder.
+Furthermore our dropdown uses `macos-hidden = always`, hiding its Dock
+icon. Merely shipping a red PNG was therefore insufficient.
 
-Per the [official Ghostty documentation](https://ghostty.org/docs/config/reference),
-the custom icon affects the running app icon (Dock/app switcher), **not
-the Finder icon for the Ghostty.app bundle**. The Hack-Jitsu dropdown
-deliberately uses `macos-hidden = always`, so you won't normally
-see its icon in the Dock; this preserves the existing Option+Tab workflow.
-The icon asset is nevertheless installed and configured.
+The public macOS installer now creates a Finder-visible branded launcher:
+
+```text
+~/Applications/Hack-Jitsu Ghostty.app  ← red Hack-Jitsu Finder icon
+/Applications/Ghostty.app              ← unmodified signed original
+```
+
+This small AppleScript launcher starts official Ghostty, then quits; use
+**Option+Tab** to show the dropdown. Its icon is generated from our 1024×1024
+transparent red PNG as a multi-resolution ICNS. The launcher is independently
+ad-hoc signed, does not need sudo or Finder automation, and can be installed
+on staff Macs without administrator privileges. It is a launcher, NOT a
+second copy of Ghostty.
+
+Applying a Finder icon directly to the real signed Ghostty bundle invalidated
+its signature in a test on a disposable copy, so the original remains
+untouched. Finder still shows the original Ghostty.app with its original icon.
+No official app modifications means Homebrew updates remain safe.
+
+```bash
+./install.sh --no-quit                      # install without killing live sessions
+open "$HOME/Applications/Hack-Jitsu Ghostty.app"
+bash tools/install-app-launcher.sh --check  # verify red signed launcher
+```
+
+Repeated installs reuse the same launcher and preserve unknown apps rather
+than overwriting them. `--no-launcher` opts out on managed work Macs.
+The running Ghostty remains headless by design; its icon does not appear in
+Dock unless you explicitly change `macos-hidden`.
 
 Ghostty's built-in Zellij status bar uses the label `Alt`, which
 means `⌥ Option` on Mac. The default maps **left Option as Alt**
 while preserving right Option for Polish characters. Use `hjkeys`
 for the Mac-oriented shortcut reference. Changing the Zellij bar
-requires starting a **new Zellij session**; existing sessions are
-never overwritten. Current settings are stored locally in
+usually affects a **new Zellij session**; old sessions remain
+untouched. To relabel a currently open `hj-41648` session immediately,
+run `hjname` inside it. This renames the session to your username
+without closing panes or losing work. Current settings are stored locally in
 `~/.config/ghostty-hackjitsu/ui.conf` (mode 0600) and preserved
 across reinstalls.
 
@@ -251,4 +273,4 @@ Quick start: `nvim .` opens the current project, `Space ff` finds files, and `Sp
 
 The installer copies files, not symlinks. Make changes in this repository and rerun `./install.sh --no-brew` to deploy them. It leaves unrelated personal files intact and does not modify `~/.ssh/config`, Git identity or existing Neovim profiles. On upgrade from older versions, the installer backs up `~/.zshrc` and removes only the exact Hack-Jitsu block it previously inserted. No background synchronization or automatic package upgrades.
 
-Run `bash tests/test-install.sh`, `bash tests/test-check.sh` and `bash tests/test-packages.sh`, `bash tests/test-shell.sh`, `bash tests/test-isolated-zsh.sh`, `bash tests/test-history.sh`, `bash tests/test-shell-ux.sh`, `bash tests/test-ui-setup.sh`, `bash tests/test-zellij-runtime.sh`, and `bash tests/test-launch.sh` to verify dry runs, backups, package detection, embedded diagnostics and idempotency. Run `bash tests/test-ghostty.sh` on a Mac with Ghostty installed to validate the isolated Ghostty configuration, shortcuts and effective font. Run `bash tests/test-nvim.sh` after dependencies are installed to download plugins in a temporary directory and detect LazyVim errors that might be hidden behind a successful Neovim exit code. That optional test requires GitHub access, skips if `nvim` or `tree-sitter` is unavailable, and leaves existing Neovim data untouched. Ghostty may also load `~/Library/Application Support/com.mitchellh.ghostty/config.ghostty` or `config` *after* the XDG configuration, so the installer warns about either file but deliberately does not alter it. The source tree is also checked for personal identifiers. No installation is performed on your current Mac by creating this repository.
+Run `bash tests/test-install.sh`, `bash tests/test-check.sh` and `bash tests/test-packages.sh`, `bash tests/test-shell.sh`, `bash tests/test-isolated-zsh.sh`, `bash tests/test-history.sh`, `bash tests/test-shell-ux.sh`, `bash tests/test-app-launcher.sh`, `bash tests/test-ui-setup.sh`, `bash tests/test-zellij-runtime.sh`, and `bash tests/test-launch.sh` to verify dry runs, backups, package detection, embedded diagnostics and idempotency. Run `bash tests/test-ghostty.sh` on a Mac with Ghostty installed to validate the isolated Ghostty configuration, shortcuts and effective font. Run `bash tests/test-nvim.sh` after dependencies are installed to download plugins in a temporary directory and detect LazyVim errors that might be hidden behind a successful Neovim exit code. That optional test requires GitHub access, skips if `nvim` or `tree-sitter` is unavailable, and leaves existing Neovim data untouched. Ghostty may also load `~/Library/Application Support/com.mitchellh.ghostty/config.ghostty` or `config` *after* the XDG configuration, so the installer warns about either file but deliberately does not alter it. The source tree is also checked for personal identifiers. No installation is performed on your current Mac by creating this repository.
