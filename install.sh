@@ -114,7 +114,7 @@ if [ -n "$GHOSTTY" ] && [ -x "$GHOSTTY" ]; then
      grep -Fq 'window-save-state = never' <<< "$effective" &&
      grep -Fq 'theme = hack-jitsu' <<< "$effective" &&
      grep -Fq 'font-family = JetBrainsMono Nerd Font Mono' <<< "$effective" &&
-     grep -Fq 'quick-terminal-size = 55%,55%' <<< "$effective" &&
+     grep -Fq 'quick-terminal-size = 55%,85%' <<< "$effective" &&
      grep -Fq 'ZDOTDIR=' <<< "$effective" &&
      grep -Fq 'hack-jitsu-cursor.glsl' <<< "$effective" &&
      grep -Fq 'hack-jitsu-watermark.png' <<< "$effective"; then

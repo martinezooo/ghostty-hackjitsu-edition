@@ -45,7 +45,7 @@ case "$1" in
       'window-save-state = never' \
       'theme = hack-jitsu' \
     'font-family = JetBrainsMono Nerd Font Mono' \
-    'quick-terminal-size = 55%,55%' \
+    'quick-terminal-size = 55%,85%' \
     'command = /bin/sh -c ZDOTDIR=somewhere' \
     'hack-jitsu-cursor.glsl' 'hack-jitsu-watermark.png';;
   +list-keybinds) echo 'keybind = alt+tab=toggle_quick_terminal';;

@@ -63,7 +63,7 @@ To temporarily disable automatic Zellij startup for your user, run `touch ~/.con
 | `hj` | Print Hack-Jitsu greeting |
 | `wave` | Reattach to the default Zellij session after leaving it |
 
-The dropdown uses **55% of the selected display height and 55% of its width**, rather than the previous hard-coded 1728px width that overflowed smaller monitors. Ghostty chooses the display under your mouse (`quick-terminal-screen = mouse`). Option + Tab requires Ghostty to be running and macOS Accessibility permission; conflicts with other global shortcuts are possible.
+The dropdown uses **55% of the selected display height and 85% of its width**, rather than the previous hard-coded 1728px width that overflowed smaller monitors. Ghostty chooses the display under your mouse (`quick-terminal-screen = mouse`). Option + Tab requires Ghostty to be running and macOS Accessibility permission; conflicts with other global shortcuts are possible.
 
 ## Cheats
 
