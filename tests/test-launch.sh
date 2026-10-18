@@ -41,20 +41,13 @@ grep -Fq 'AFTER INSTALLATION: Ghostty will QUIT COMPLETELY.' "$TMP/initial.log"
 grep -Fq '[PASS] Ghostty is already stopped' "$TMP/initial.log"
 test ! -s "$HJ_LAUNCH_LOG"
 
-# Running instance: graceful quit, never open again.
+# Running instance: SIGTERM closes without the macOS Quit/Cancel dialog.
 touch "$HJ_PROCESS_MARKER"
-HJ_QUIT_METHOD=graceful bash "$ROOT/install.sh" --no-brew --no-shell --no-nvim >"$TMP/graceful.log"
-grep -Fq '[PASS] Ghostty completely stopped' "$TMP/graceful.log"
+HJ_QUIT_METHOD=term bash "$ROOT/install.sh" --no-brew --no-shell --no-nvim >"$TMP/graceful.log"
+grep -Fq '[PASS] Ghostty stopped without a confirmation dialog' "$TMP/graceful.log"
 test ! -e "$HJ_PROCESS_MARKER"
-grep -q '^osascript ' "$HJ_LAUNCH_LOG"
-! grep -q '^open ' "$HJ_LAUNCH_LOG"
-
-# If graceful quit fails to close the app, SIGTERM is attempted.
-: > "$HJ_LAUNCH_LOG"
-touch "$HJ_PROCESS_MARKER"
-HJ_QUIT_METHOD=term bash "$ROOT/install.sh" --no-brew --no-shell --no-nvim >"$TMP/term.log"
 grep -q '^pkill ' "$HJ_LAUNCH_LOG"
-test ! -e "$HJ_PROCESS_MARKER"
+! grep -q '^osascript ' "$HJ_LAUNCH_LOG"
 ! grep -q '^open ' "$HJ_LAUNCH_LOG"
 
 # --no-quit, --dry-run and --check never touch the running instance.

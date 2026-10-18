@@ -33,6 +33,9 @@ copy-on-select = clipboard
 macos-hidden = always
 initial-window = false
 quit-after-last-window-closed = false
+# Disable repetitive close confirmation; installer signals Ghostty to exit.
+# Running shell jobs are still at risk when closing the application.
+confirm-close-surface = false
 
 quick-terminal-position = top
 # Procenty zamiast stalej szerokosci MacBooka: Ghostty dopasowuje panel

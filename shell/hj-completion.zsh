@@ -26,13 +26,20 @@ for _hj_prefix in "$_hj_brew_prefix" /opt/homebrew /usr/local; do
   fi
 done
 zstyle ':completion:*:descriptions' format '[%d]'
+zstyle ':completion:*' verbose yes
 zstyle ':completion:*' menu no
 zstyle ':completion:*' group-name ''
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
 autoload -Uz compinit
 # Isolated profile -> isolated compilation cache; no ~/.zcompdump changes.
 _hj_compdump="${XDG_CACHE_HOME:-$HOME/.cache}/ghostty-hackjitsu/zcompdump"
 mkdir -p "${_hj_compdump:h}" 2>/dev/null || true
 compinit -d "$_hj_compdump" 2>/dev/null || compinit -D
+# All native completions (git, ssh, nmap, rsync, etc.) remain available.
+# Aliases replacing ls with eza need explicit completion mapping.
+if (( $+commands[eza] )) && [[ -n "${_comps[eza]:-}" ]]; then
+  compdef "${_comps[eza]}" ls ll la lt
+fi
 for _hj_prefix in "$_hj_brew_prefix" /opt/homebrew /usr/local; do
   [[ -n "$_hj_prefix" ]] || continue
   _hj_fzf_tab="$_hj_prefix/opt/fzf-tab/share/fzf-tab/fzf-tab.zsh"
@@ -52,7 +59,7 @@ hjfetch() {
   fi
   local _hj_logo="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty-hackjitsu/logo.txt"
   if [[ -r "$_hj_logo" ]]; then
-    command fastfetch --file "$_hj_logo" --structure OS:Kernel:Uptime:Packages:Shell:Terminal:CPU:GPU:Memory:Disk:Battery
+    command fastfetch --file "$_hj_logo" --logo-color-1 red --color-keys white --color-title red --structure OS:Kernel:Uptime:Packages:Shell:Terminal:CPU:GPU:Memory:Disk:Battery
   else
     command fastfetch --logo none --structure OS:Kernel:Uptime:Packages:Shell:Terminal:CPU:GPU:Memory:Disk:Battery
   fi

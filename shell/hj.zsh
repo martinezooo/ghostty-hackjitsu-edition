@@ -18,7 +18,7 @@ if ! typeset -f wave >/dev/null 2>&1; then
       print "Already inside a Zellij session"
       return 0
     fi
-    zellij attach -c hackjitsu
+    zellij attach -c hackjitsu-v2
   }
 fi
 
@@ -31,8 +31,8 @@ hj() {
   printf '  hjfetch            HACK JITSU system dashboard\n'
   printf '  ls / ll / la / lt  File lists with colors and icons\n'
   printf '  Tab                Interactive argument completion\n'
-  printf '  Zellij             Starts automatically in Ghostty (session: hackjitsu)
-  wave               Reattach to hackjitsu after leaving Zellij\n'
+  printf '  Zellij             Starts automatically in Ghostty (session: hackjitsu-v2)
+  wave               Reattach to Hack-Jitsu after leaving Zellij\n'
   printf '  nvim               Start Neovim + LazyVim\n'
   printf '  Ctrl+P then N      Open a second Zellij pane with shell\n'
   printf '\n'
@@ -78,18 +78,10 @@ if [[ -o interactive ]] &&
     ZSH_HIGHLIGHT_STYLES[double-quoted-argument]='fg=cyan'
   fi
 
-  autoload -Uz vcs_info add-zsh-hook
-  zstyle ':vcs_info:git:*' formats ' %%F{red}[%b]%%f'
-  zstyle ':vcs_info:git:*' actionformats ' %%F{red}[%b:%a]%%f'
-  _hj_precmd() { vcs_info; }
-  if (( ${precmd_functions[(Ie)_hj_precmd]:-0} == 0 )); then
-    add-zsh-hook precmd _hj_precmd
-  fi
-  setopt prompt_subst
-  # Red username / grey hostname / white directory / red Git branch.
-  # %n, %m and %~ are expanded by Zsh, never stored as personal data in Git.
-  PROMPT='%F{242}╭─%f %B%F{white}%~%f%b${vcs_info_msg_0_}\n%B%F{#ec1313}❯%f%b '
-  RPROMPT='%F{242}%D{%H:%M}%f'
+  # Keep the prompt short and stable, regardless of the current path or repo.
+  # More detailed context is available on demand through pwd/git status.
+  PROMPT='%B%F{#ec1313}❯%f%b '
+  RPROMPT=''
 
   # In Zellij, single-file "nvim filename" opens the editor in-place and
   # restores the ORIGINAL shell pane when :q! closes the editor.

@@ -16,17 +16,15 @@ export HJ_TEST_SHELL="$ROOT/shell/hj.zsh" HJ_TEST_REPO="$ROOT"
 TERM_PROGRAM=ghostty TERM=xterm-ghostty zsh -fic '
   source "$HJ_TEST_SHELL"
   [[ "$PROMPT" == *"#ec1313"* ]] || exit 10
-  [[ "$PROMPT" == *"vcs_info_msg_0_"* ]] || exit 11
+  [[ "$PROMPT" == *"❯"* && "$PROMPT" != *"%n"* && "$PROMPT" != *"%~"* ]] || exit 11
   [[ "$ZSH_HIGHLIGHT_STYLES[command]" == "fg=cyan,bold" ]] || exit 12
   [[ "$ZSH_HIGHLIGHT_STYLES[path]" == "fg=cyan,underline" ]] || exit 13
   [[ "$ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE" == "fg=242" ]] || exit 14
   (( $+functions[_zsh_highlight] )) || exit 15
   (( $+functions[_zsh_autosuggest_start] )) || exit 16
-  cd "$HJ_TEST_REPO"; _hj_precmd
-  [[ "$vcs_info_msg_0_" == *"["* ]] || exit 17
-  [[ "${precmd_functions[(Ie)_hj_precmd]}" -gt 0 ]] || exit 18
+  [[ "$RPROMPT" == "" ]] || exit 17
   source "$HJ_TEST_SHELL"
-  [[ "${(M)precmd_functions:#_hj_precmd}" == _hj_precmd ]] || exit 19
+  [[ "$PROMPT" == *"#ec1313"* ]] || exit 18
 '
 TERM_PROGRAM=Apple_Terminal TERM=xterm-256color zsh -fic '
   source "$HJ_TEST_SHELL"
@@ -36,4 +34,4 @@ TERM_PROGRAM=ghostty TERM=xterm-ghostty SSH_CONNECTION="dummy" zsh -fic '
   source "$HJ_TEST_SHELL"
   [[ "$PROMPT" != *"#ec1313"* ]] || exit 21
 '
-echo 'PASS: prompt colors, Git status, command highlighting, autosuggestions, SSH/Terminal isolation'
+echo 'PASS: minimal prompt, command highlighting, autosuggestions, SSH/Terminal isolation'

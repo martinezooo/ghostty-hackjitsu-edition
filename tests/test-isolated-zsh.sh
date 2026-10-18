@@ -61,7 +61,7 @@ def launch(case,expected,changes=None,marker=False):
     assert 'ISOLATED_'+case in output,(case,output)
     calls=log.read_text().strip().splitlines() if log.exists() else []
     assert len(calls)==expected,(case,calls,output[-1000:])
-    if calls:assert calls[0]=='attach -c hackjitsu',(case,calls)
+    if calls:assert calls[0]=='attach -c hackjitsu-v2',(case,calls)
     print('PASS ZDOTDIR case',case,'Zellij calls:',len(calls))
 launch('normal',1)
 launch('nested_zellij',0,{'ZELLIJ':'1'})

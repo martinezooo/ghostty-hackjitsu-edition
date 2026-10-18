@@ -63,7 +63,7 @@ if [[ -o interactive && -t 0 && -t 1 ]] &&
    [[ "${HJ_AUTO_ZELLIJ:-1}" != 0 ]] &&
    [[ ! -e "${ZDOTDIR:-$HOME}/no-auto-zellij" ]]; then
   if (( $+commands[zellij] )); then
-    zellij attach -c hackjitsu
+    zellij attach -c hackjitsu-v2
   else
     print -u2 'Hack-Jitsu: Zellij not installed; opening standard shell.'
   fi

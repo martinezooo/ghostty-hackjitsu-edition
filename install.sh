@@ -615,7 +615,7 @@ echo "   Tab      Fuzzy completion menu with argument descriptions"
 echo "   Zellij   Starts automatically inside the dropdown (session: hackjitsu)"
 echo "   wave     Reattach to hackjitsu session after leaving it"
 if [ "$NO_NVIM" -eq 0 ]; then
-  echo "   nvim     Start LazyVim (first start downloads plugins)"
+  echo "   nvim     Start LazyVim (plugins prepared by installer when online)"
 else
   echo "   nvim     Skipped during installation (--no-nvim)"
 fi
@@ -645,9 +645,13 @@ quit_ghostty() {
     echo "[PASS] Ghostty is already stopped. No extra windows or Dock process."
     return 0
   fi
-  echo "Closing Ghostty completely (all tabs and active shell sessions will close)."
-  if command -v osascript >/dev/null 2>&1; then
-    osascript -e 'tell application id "com.mitchellh.ghostty" to quit' >/dev/null 2>&1 || true
+  echo "Closing Ghostty (active tabs and shell jobs will end)."
+  # AppleScript's application quit sends a UI close event and Ghostty shows
+  # "Quit Ghostty / Cancel". A direct TERM targets only this user's Ghostty
+  # process and does not produce that dialog. Never use SIGKILL.
+  if ! pkill -TERM -ix ghostty 2>/dev/null; then
+    echo "[WARN] Unable to stop Ghostty; close it manually when convenient." >&2
+    return 1
   fi
   local i
   for i in {1..20}; do
@@ -655,20 +659,10 @@ quit_ghostty() {
     sleep 0.2
   done
   if ghostty_running; then
-    echo "INFO: Ghostty remained after graceful quit; sending SIGTERM to its processes."
-    if ! pkill -TERM -ix ghostty 2>/dev/null; then
-      echo "[WARN] Unable to send termination signal to Ghostty." >&2
-    fi
-    for i in {1..20}; do
-      ghostty_running || break
-      sleep 0.2
-    done
-  fi
-  if ghostty_running; then
-    echo "[FAIL] Ghostty is still running. Close it in Activity Monitor." >&2
+    echo "[WARN] Ghostty still running. Check its windows and close it manually." >&2
     return 1
   fi
-  echo "[PASS] Ghostty completely stopped. It will NOT be relaunched."
+  echo "[PASS] Ghostty stopped without a confirmation dialog. It will NOT be relaunched."
 }
 
 if [ "$QUIT_GHOSTTY" -eq 1 ]; then
@@ -678,13 +672,9 @@ if [ "$QUIT_GHOSTTY" -eq 1 ]; then
     echo "Ghostty will quit completely after this terminal session finishes."
     nohup /bin/bash -c '
       sleep 2
-      if ! pgrep -ix ghostty >/dev/null 2>&1; then exit 0; fi
-      osascript -e '\''tell application id "com.mitchellh.ghostty" to quit'\'' >/dev/null 2>&1 || true
-      for i in {1..20}; do
-        pgrep -ix ghostty >/dev/null 2>&1 || exit 0
-        sleep 0.2
-      done
-      pkill -TERM -ix ghostty >/dev/null 2>&1 || true
+      if pgrep -ix ghostty >/dev/null 2>&1; then
+        pkill -TERM -ix ghostty >/dev/null 2>&1 || true
+      fi
     ' >/dev/null 2>&1 </dev/null &
     echo "No automatic restart. Start Ghostty later to use Option + Tab."
   elif ! quit_ghostty; then

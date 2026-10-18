@@ -26,21 +26,21 @@ A built-in diagnostic runs automatically at the end of a normal installation and
 
 ## First launch and clean shutdown
 
-**On every successful installation or reinstall, Ghostty is shut down completely and is NOT relaunched.** The installer prints a Quick Start summary before quitting. Existing Ghostty tabs/shell sessions will close; save your work first. From another terminal, it requests a normal macOS quit, then sends SIGTERM only if the app remains running. From inside Ghostty, the quit is deferred briefly until the installer finishes printing.
+**On every successful installation or reinstall, Ghostty is shut down completely and is NOT relaunched.** The installer prints a Quick Start summary before quitting. Existing Ghostty tabs/shell sessions will close; save your work first. The installer sends SIGTERM directly to the Ghostty app to avoid macOS scripting dialogs ("Quit Ghostty / Cancel"). This closes active Ghostty tabs and shell processes; save work before updating. From inside Ghostty, the signal is deferred briefly to allow the installer to finish printing. It does not delete Zellij sessions or shell history.
 
 When you later want the dropdown, manually start Ghostty **once** using `open -a Ghostty` or from Applications. Its intended settings (`macos-hidden = always`, `initial-window = false`, `window-save-state = never`) hide the Dock icon and normal window. Once the app is running, use **Option + Tab**. The shortcut cannot work while Ghostty is fully shut down. If a standard window or Dock icon still appears, run `./install.sh --check` to inspect the **effective configuration**: files in `~/Library/Application Support/com.mitchellh.ghostty/` can override our XDG settings.
 
-The installer provides `--no-quit` to preserve active sessions when deliberately needed; `--dry-run` and `--check` never close Ghostty. The old `--launch` and `--restart` flags are removed because they caused unwanted windows/restarts.
+The Ghostty configuration also disables the close confirmation (`confirm-close-surface = false`) to avoid repeated dialogs, so **quitting Ghostty will not ask you to save active terminal jobs**. The installer provides `--no-quit` to preserve active sessions when deliberately needed; `--dry-run` and `--check` never close Ghostty. The old `--launch` and `--restart` flags are removed because they caused unwanted windows/restarts.
 
 ## Rich shell experience (matching the private Mac terminal)
 
 The isolated Hack-Jitsu Zsh profile installs **eza**, **fastfetch**, **fzf-tab**, and **zsh-completions** via Homebrew if missing. `ls` becomes a colorful icon-based listing, with `ll` (details), `la` (all files) and `lt` (tree). `command ls` bypasses the alias.
 
-**Tab** enables fuzzy Zsh completion menus with option descriptions when fzf-tab is installed. Plugin order is deliberate: compinit, fzf-tab, autosuggestions, highlighting. `hjfetch` shows Fastfetch with the bundled HACK JITSU ASCII logo and live system information. The banner appears in sufficiently wide interactive sessions, and can be suppressed using `HJ_NO_BANNER=1`. Personal device information is never included in the public repo.
+**Tab** uses the Zsh completion system for **all commands with available completions** (including `git`, `ssh`, `rsync`, `nmap`, and installed tools like Docker or kubectl). `fzf-tab` supplies a fuzzy selection interface with option descriptions when installed. `ls` and related eza aliases explicitly reuse eza completions. For option menus, type a partial flag such as `git --<Tab>` or `ls -<Tab>`; after a fully formed flag like `ls -la<Tab>`, there may be nothing further to complete. Plugin order is deliberate: compinit, fzf-tab, autosuggestions, highlighting. `hjfetch` shows Fastfetch with the bundled HACK JITSU ASCII logo and live system information. The Fastfetch logo uses a red theme (rather than system defaults, which may be green). The shell prompt is a small **red `❯`**, without a forced pathname or Git branch; `pwd` and `git status` remain available when needed. The banner appears in sufficiently wide interactive sessions, and can be suppressed using `HJ_NO_BANNER=1`. Personal device information is never included in the public repo.
 
 ### Neovim inside Zellij
 
-The persistent Zellij session `hackjitsu` **remembers the active editor/tab**. Returning to Neovim when reattaching is expected. Press **Ctrl+P**, then **N** to create a shell pane, or **Ctrl+T**, then **N** for a new shell tab.
+The persistent Zellij session `hackjitsu-v2` **remembers the active editor/tab**. This session name is new to keep legacy `hackjitsu` sessions intact while avoiding reopening a stale editor layout after upgrading. Returning to Neovim when reattaching is expected. Press **Ctrl+P**, then **N** to create a shell pane, or **Ctrl+T**, then **N** for a new shell tab.
 
 In the Hack-Jitsu Zellij shell, `nvim filename` opens a single file with `zellij edit --in-place`: on `:q!`, Zellij restores the original **shell pane** rather than losing it. Complex Neovim calls (flags or multiple arguments) keep normal CLI behavior. Set `HJ_NVIM_DIRECT=1` to disable the shortcut.
 

@@ -45,12 +45,18 @@ bash "$ROOT/install.sh" --no-brew --no-quit --no-nvim >/dev/null
 export ZDOTDIR="$XDG_CONFIG_HOME/ghostty-hackjitsu/zsh"
 TERM_PROGRAM=ghostty TERM=xterm-ghostty HJ_AUTO_ZELLIJ=0 zsh -ic '
   [[ "${HJ_FZF_TAB_LOADED:-0}" == 1 ]] || exit 11
+  # Built-in Zsh completes dozens of commands; fzf-tab is just the UI.
+  [[ -n "${_comps[git]:-}" && -n "${_comps[ssh]:-}" ]] || exit 18
+  [[ -n "${_comps[rsync]:-}" && -n "${_comps[grep]:-}" ]] || exit 19
+  [[ -n "${_comps[eza]:-}" && "${_comps[ls]}" == "${_comps[eza]}" ]] || exit 20
+  [[ "${_comps[ll]}" == "${_comps[eza]}" && "${_comps[la]}" == "${_comps[eza]}" ]] || exit 21
+  [[ "$(bindkey "^I")" == *"expand-or-complete"* ]] || exit 22
   [[ "$(alias ls)" == *"eza --icons=auto"* ]] || exit 12
   [[ "$(alias ll)" == *"eza -lah"* ]] || exit 13
   (( $+functions[hjfetch] )) || exit 14
   (( $+functions[_zsh_highlight] )) || exit 15
-  [[ "$RPROMPT" == *"%H:%M"* ]] || exit 16
-  [[ "$PROMPT" == *"vcs_info_msg_0_"* ]] || exit 17
+  [[ -z "$RPROMPT" ]] || exit 16
+  [[ "$PROMPT" == *"#ec1313"* && "$PROMPT" != *"%~"* ]] || exit 17
   hjfetch
 ' >"$TMP/local.log" 2>&1
 cat "$TMP/local.log" | grep -Fq FAKE_FETCH
