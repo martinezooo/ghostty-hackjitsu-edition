@@ -25,7 +25,7 @@ case "$1" in
   +show-config)
     printf '%s\n' 'theme = hack-jitsu' \
       'font-family = JetBrainsMono Nerd Font Mono' \
-      'quick-terminal-size = 400px,1728px' \
+      'quick-terminal-size = 40%,90%' \
       'custom-shader = shaders/hack-jitsu-cursor.glsl' \
       'background-image = hack-jitsu-watermark.png'
     ;;
@@ -51,7 +51,9 @@ grep -Eq 'Summary: [0-9]+ PASS \| 0 WARN \| 0 FAIL' "$TMP/pass.log"
 
 # Full installer invokes doctor automatically after the package stage.
 bash "$ROOT/install.sh" --no-nvim --no-shell >"$TMP/automatic.log"
-grep -Fq 'Verifying the installation (built into install.sh):' "$TMP/automatic.log"
+grep -Fq '=== Installation verification ===' "$TMP/automatic.log"
+grep -Fq 'HACK-JITSU EDITION | SETUP FINISHED' "$TMP/automatic.log"
+grep -Fq 'Press Option (Alt) + Tab' "$TMP/automatic.log"
 grep -Eq 'Summary: [0-9]+ PASS \| 0 WARN \| 0 FAIL' "$TMP/automatic.log"
 
 # Missing file must be a failing diagnosis, not a false success.

@@ -42,7 +42,7 @@ case "$1" in
   +validate-config) exit 0 ;;
   +show-config) printf '%s\n' 'theme = hack-jitsu' \
     'font-family = JetBrainsMono Nerd Font Mono' \
-    'quick-terminal-size = 400px,1728px' \
+    'quick-terminal-size = 40%,90%' \
     'hack-jitsu-cursor.glsl' 'hack-jitsu-watermark.png';;
   +list-keybinds) echo 'keybind = alt+tab=toggle_quick_terminal';;
   +list-fonts) echo 'JetBrainsMono Nerd Font Mono';;

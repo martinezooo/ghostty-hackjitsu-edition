@@ -16,12 +16,18 @@ NO_NVIM=0
 CHECK_ONLY=0
 STRICT_CHECK=0
 USER_INSTALL=-1
+LAUNCH_GHOSTTY=auto
+RESTART_GHOSTTY=auto
 
 usage() {
   cat <<'EOF'
-Usage: ./install.sh [--dry-run] [--check] [--user] [--system] [--no-brew] [--no-shell] [--no-nvim] [--tools] [--strict]
+Usage: ./install.sh [--dry-run] [--check] [--launch|--no-launch] [--restart|--no-restart] [--user] [--system] [--no-brew] [--no-shell] [--no-nvim] [--tools] [--strict]
   --dry-run   Show intended changes without writing or installing anything
   --check     Verify installed packages and settings without changing anything
+  --launch    Open Ghostty after installation, even without an interactive TTY
+  --no-launch Do not start Ghostty automatically
+  --restart   Restart an existing Ghostty session (closes its tabs)
+  --no-restart Preserve running Ghostty sessions; reload manually
   --user      Force per-user mode: no sudo; use ~/Applications for Ghostty
   --system    Force system-wide casks (needs administrator rights)
   --strict    Treat verification warnings as errors
@@ -36,6 +42,10 @@ for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=1 ;;
     --check) CHECK_ONLY=1 ;;
+    --launch) LAUNCH_GHOSTTY=yes ;;
+    --no-launch) LAUNCH_GHOSTTY=no ;;
+    --restart) RESTART_GHOSTTY=yes; LAUNCH_GHOSTTY=yes ;;
+    --no-restart) RESTART_GHOSTTY=no ;;
     --user) USER_INSTALL=1 ;;
     --system) USER_INSTALL=0 ;;
     --strict) STRICT_CHECK=1 ;;
@@ -104,7 +114,7 @@ if [ -n "$GHOSTTY" ] && [ -x "$GHOSTTY" ]; then
   effective="$("$GHOSTTY" +show-config 2>/dev/null)" || effective=""
   if grep -Fq 'theme = hack-jitsu' <<< "$effective" &&
      grep -Fq 'font-family = JetBrainsMono Nerd Font Mono' <<< "$effective" &&
-     grep -Fq 'quick-terminal-size = 400px,1728px' <<< "$effective" &&
+     grep -Fq 'quick-terminal-size = 40%,90%' <<< "$effective" &&
      grep -Fq 'hack-jitsu-cursor.glsl' <<< "$effective" &&
      grep -Fq 'hack-jitsu-watermark.png' <<< "$effective"; then
     check_pass "Ghostty active theme, font, dropdown, shader and watermark"
@@ -167,6 +177,25 @@ if check_available navi && [ -d "$HJ_CONFIG/cheats" ]; then
   fi
 fi
 if [ "$CHECK_SHELL" -eq 1 ]; then
+  if [ "${SHELL##*/}" != zsh ]; then
+    check_warn "Default login shell is ${SHELL##*/}, not zsh; Hack-Jitsu prompt requires zsh"
+  fi
+  for plugin in zsh-autosuggestions zsh-syntax-highlighting; do
+    if check_available brew && brew list --formula "$plugin" >/dev/null 2>&1; then
+      check_pass "$plugin installed"
+    else
+      found=0
+      for prefix in "${HOMEBREW_PREFIX:-}" /opt/homebrew /usr/local; do
+        [ -n "$prefix" ] || continue
+        if [ -f "$prefix/share/$plugin/$plugin.zsh" ]; then found=1; break; fi
+      done
+      if [ "$found" -eq 1 ]; then
+        check_pass "$plugin script available"
+      else
+        check_fail "$plugin missing. Fix: brew install $plugin"
+      fi
+    fi
+  done
   if [ -f "$HOME/.zshrc" ] && grep -Fq '# >>> Ghostty Hack-Jitsu Edition >>>' "$HOME/.zshrc"; then
     check_pass "Shell integration present in ~/.zshrc"
   else
@@ -399,6 +428,10 @@ if [ "$NO_BREW" -eq 0 ]; then
   brew_formula navi
   brew_formula fzf
   brew_formula zellij
+  if [ "$NO_SHELL" -eq 0 ]; then
+    brew_formula zsh-autosuggestions
+    brew_formula zsh-syntax-highlighting
+  fi
   if [ "$NO_NVIM" -eq 0 ]; then
     for pkg in neovim lazygit ripgrep fd tree-sitter-cli; do brew_formula "$pkg"; done
   fi
@@ -458,16 +491,144 @@ EOF
   fi
 fi
 
-echo "Setup complete. Open Ghostty and press Option+Tab to toggle its dropdown."
-echo "Run hjhelp for cheats, or nvim to bootstrap LazyVim on first launch."
-if [ "$DRY_RUN" -eq 0 ] && [ "$NO_BREW" -eq 0 ]; then
+if [ "$DRY_RUN" -eq 1 ]; then
   echo
-  echo "Verifying the installation (built into install.sh):"
-  if ! verify_installation; then
-    echo "Installation completed but verification found errors." >&2
-    echo "Fix the [FAIL] entries, then run: ./install.sh --check" >&2
-    exit 1
+  echo "DRY RUN COMPLETE: no applications, settings, or files were changed."
+  echo "Run ./install.sh to install, then press Option+Tab after Ghostty starts."
+  exit 0
+fi
+
+verify_status=0
+if [ "$NO_BREW" -eq 0 ]; then
+  echo
+  echo "=== Installation verification ==="
+  verify_installation || verify_status=$?
+else
+  echo "INFO: Package verification skipped (--no-brew). Run ./install.sh --check when ready."
+fi
+
+echo
+echo "============================================================"
+if [ "$verify_status" -eq 0 ]; then
+  echo " HACK-JITSU EDITION | SETUP FINISHED"
+else
+  echo " HACK-JITSU EDITION | SETUP NEEDS ATTENTION"
+fi
+echo "============================================================"
+echo " Ghostty is a HIDDEN dropdown terminal:"
+echo "   1. Start Ghostty once (it will not appear in the Dock)."
+echo "   2. Press Option (Alt) + Tab to show/hide it."
+echo "   3. If the shortcut fails, grant Ghostty access in:"
+echo "      System Settings > Privacy & Security > Accessibility"
+echo
+echo " IN YOUR TERMINAL"
+echo "   hj       Show Hack-Jitsu quick-start guide"
+echo "   hjhelp   Search interactive pentest/admin/network cheats"
+echo "   wave     Start or attach to Zellij session"
+if [ "$NO_NVIM" -eq 0 ]; then
+  echo "   nvim     Start LazyVim (first start downloads plugins)"
+else
+  echo "   nvim     Skipped during installation (--no-nvim)"
+fi
+echo
+echo " DIAGNOSTICS"
+echo "   ./install.sh --check    Read-only validation"
+echo "   ./install.sh --dry-run  Preview changes"
+echo "   Re-run ./install.sh safely: existing packages are skipped."
+echo "============================================================"
+
+if [ "$verify_status" -ne 0 ]; then
+  echo "ERROR: Some installation checks failed. Review [FAIL] above." >&2
+  echo "       Fix those items and rerun ./install.sh --check." >&2
+  exit "$verify_status"
+fi
+
+# macOS Quick Terminal position/geometry can require a FULL app restart.
+# Do not blindly kill existing sessions, as tabs may contain running commands.
+ghostty_running() { pgrep -ix ghostty >/dev/null 2>&1; }
+app=""
+if [ -d "$HOME/Applications/Ghostty.app" ]; then
+  app="$HOME/Applications/Ghostty.app"
+elif [ -d /Applications/Ghostty.app ]; then
+  app=/Applications/Ghostty.app
+fi
+
+open_ghostty() {
+  if ! command -v open >/dev/null 2>&1; then return 1; fi
+  if [ -n "$app" ]; then
+    open "$app" >/dev/null 2>&1
+  else
+    open -a Ghostty >/dev/null 2>&1
   fi
-elif [ "$DRY_RUN" -eq 0 ]; then
-  echo "Package verification skipped (--no-brew). Run ./install.sh --check when ready."
+}
+
+# Deferral is important if the installer itself is running INSIDE Ghostty:
+# the terminal session must first return so the summary can be read.
+restart_ghostty() {
+  if ! command -v osascript >/dev/null 2>&1; then
+    echo "WARNING: osascript unavailable; quit and reopen Ghostty manually."
+    return 1
+  fi
+  if [ "${TERM_PROGRAM:-}" = ghostty ]; then
+    echo "Restarting Ghostty after this installer finishes; active Ghostty tabs will close."
+    echo "After restart, press Option + Tab to open the responsive dropdown."
+    nohup /bin/bash -c '
+      sleep 3
+      osascript -e '\''tell application "Ghostty" to quit'\'' >/dev/null 2>&1 || exit 1
+      for i in {1..30}; do
+        pgrep -ix ghostty >/dev/null 2>&1 || break
+        sleep 0.2
+      done
+      if pgrep -ix ghostty >/dev/null 2>&1; then exit 1; fi
+      if [ -n "$1" ]; then open "$1" >/dev/null 2>&1; else open -a Ghostty >/dev/null 2>&1; fi
+    ' _ "$app" >/dev/null 2>&1 </dev/null &
+    return 0
+  fi
+  if ! osascript -e 'tell application "Ghostty" to quit' >/dev/null 2>&1; then
+    echo "WARNING: macOS refused the graceful Ghostty quit. Restart it manually."
+    return 1
+  fi
+  for i in {1..30}; do
+    ghostty_running || break
+    sleep 0.2
+  done
+  if ghostty_running; then
+    echo "WARNING: Ghostty is still running (maybe close confirmation). Restart manually."
+    return 1
+  fi
+  if open_ghostty; then
+    echo "Ghostty restarted with the updated display-relative dropdown size."
+    return 0
+  fi
+  echo "WARNING: Ghostty quit, but could not be reopened. Use: open -a Ghostty"
+  return 1
+}
+
+if [ "$LAUNCH_GHOSTTY" = auto ]; then
+  LAUNCH_GHOSTTY=no
+  if [ -t 0 ] && [ -t 1 ]; then LAUNCH_GHOSTTY=yes; fi
+fi
+if [ "$LAUNCH_GHOSTTY" != yes ]; then
+  echo "Start Ghostty: open -a Ghostty (then Option + Tab)."
+elif ghostty_running; then
+  if [ "$RESTART_GHOSTTY" = auto ]; then
+    RESTART_GHOSTTY=no
+    if [ -t 0 ] && [ -t 1 ]; then
+      printf 'Ghostty is running. Restart to apply new dropdown size? Existing tabs will close. [Y/n] '
+      answer=''
+      IFS= read -r answer || true
+      case "$answer" in ""|y|Y|yes|YES) RESTART_GHOSTTY=yes ;; esac
+    fi
+  fi
+  if [ "$RESTART_GHOSTTY" = yes ]; then
+    restart_ghostty || true
+  else
+    echo "Ghostty is running; did not close existing tabs."
+    echo "To apply the new window geometry, quit Ghostty fully and reopen it."
+    echo "Or run ./install.sh --restart to perform a graceful restart."
+  fi
+elif open_ghostty; then
+  echo "Ghostty launched. Its Dock icon is intentionally hidden. Press Option + Tab."
+else
+  echo "WARNING: Could not start Ghostty. Start it manually via Applications."
 fi

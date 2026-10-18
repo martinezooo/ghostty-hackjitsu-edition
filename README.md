@@ -24,6 +24,16 @@ Optional flags: `--check` (read-only verification built into `install.sh`), `--s
 
 A built-in diagnostic runs automatically at the end of a normal installation and displays `[PASS]`, `[WARN]` and `[FAIL]` results for applications, CLI tools, fonts, configuration, shortcuts and cheat sheets. Run `./install.sh --check` at any time to verify the machine **without changing anything**; it returns exit code 1 for missing required components. Use `./install.sh --check --strict` to also fail on warnings. The first Neovim startup downloads LazyVim plugins, so an initial warning about uninitialized plugins is expected until you start `nvim` once.
 
+## First launch and restart
+
+The installer prints a **full, immediate Quick Start summary** with the global hotkey, terminal commands and troubleshooting. In an interactive terminal it also starts Ghostty if it is not yet running. When Ghostty is already running, it asks permission to restart it to apply new dropdown geometry (existing Ghostty tabs will close); `--restart` explicitly requests a graceful restart, while `--no-restart` preserves sessions. If the installer runs inside Ghostty, the restart is deferred briefly so the script can finish before the app quits. `--no-launch` prevents automatic launch. No GUI actions occur in `--dry-run` or `--check`.
+
+Because Ghostty uses `macos-hidden = always` and `initial-window = false`, **no ordinary terminal window or Dock icon will appear**: start Ghostty and use **Option + Tab** to reveal it. The first Ghostty shell shows a short welcome with `hj`, `hjhelp`, `wave` and `nvim`. The global shortcut requires macOS Accessibility permission.
+
+## Hack-Jitsu shell prompt
+
+Inside **local Ghostty Zsh sessions**, the included shell integration now themes the **prompt** as well as Ghostty itself: red username and prompt arrow, grey hostname, white working directory, and red Git branch (when present). Typing commands is highlighted in cyan, unknown commands in red, command-line options in yellow, and file paths in underlined cyan. Optional history suggestions appear in grey. The installer installs `zsh-syntax-highlighting` and `zsh-autosuggestions` when absent; both are automatically loaded from Homebrew. No private hostnames or usernames are committed, and Terminal.app, SSH and noninteractive shells are unchanged. Open a **new Ghostty shell** (or run `source ~/.config/ghostty-hackjitsu/shell.zsh`) after updating to use these changes.
+
 ## Keyboard and commands
 
 | Shortcut / command | Action |
@@ -38,7 +48,7 @@ A built-in diagnostic runs automatically at the end of a normal installation and
 | `hj` | Print Hack-Jitsu greeting |
 | `wave` | Attach/start a Zellij session |
 
-The copied Ghostty config retains the original dropdown size (400px high, up to 1728px wide). Adjust `quick-terminal-size` locally for your display. Global Option + Tab may conflict with other shortcuts.
+The dropdown uses **40% of the selected display height and 90% of its width**, rather than the previous hard-coded 1728px width that could overflow smaller monitors. Ghostty chooses the display under your mouse (`quick-terminal-screen = mouse`). Option + Tab requires Ghostty to be running and macOS Accessibility permission; conflicts with other global shortcuts are possible.
 
 ## Cheats
 
@@ -58,4 +68,4 @@ Quick start: `nvim .` opens the current project, `Space ff` finds files, and `Sp
 
 The installer copies files, not symlinks. Make changes in this repository and rerun `./install.sh --no-brew` to deploy them. It leaves unrelated personal files intact and does not modify `~/.ssh/config`, Git identity or existing Neovim profiles. No background synchronization or automatic package upgrades.
 
-Run `bash tests/test-install.sh`, `bash tests/test-check.sh` and `bash tests/test-packages.sh` to verify dry runs, backups, package detection, embedded diagnostics and idempotency. Run `bash tests/test-ghostty.sh` on a Mac with Ghostty installed to validate the isolated Ghostty configuration, shortcuts and effective font. Run `bash tests/test-nvim.sh` after dependencies are installed to download plugins in a temporary directory and detect LazyVim errors that might be hidden behind a successful Neovim exit code. That optional test requires GitHub access, skips if `nvim` or `tree-sitter` is unavailable, and leaves existing Neovim data untouched. Ghostty may also load `~/Library/Application Support/com.mitchellh.ghostty/config.ghostty` or `config` *after* the XDG configuration, so the installer warns about either file but deliberately does not alter it. The source tree is also checked for personal identifiers. No installation is performed on your current Mac by creating this repository.
+Run `bash tests/test-install.sh`, `bash tests/test-check.sh` and `bash tests/test-packages.sh`, `bash tests/test-shell.sh`, and `bash tests/test-launch.sh` to verify dry runs, backups, package detection, embedded diagnostics and idempotency. Run `bash tests/test-ghostty.sh` on a Mac with Ghostty installed to validate the isolated Ghostty configuration, shortcuts and effective font. Run `bash tests/test-nvim.sh` after dependencies are installed to download plugins in a temporary directory and detect LazyVim errors that might be hidden behind a successful Neovim exit code. That optional test requires GitHub access, skips if `nvim` or `tree-sitter` is unavailable, and leaves existing Neovim data untouched. Ghostty may also load `~/Library/Application Support/com.mitchellh.ghostty/config.ghostty` or `config` *after* the XDG configuration, so the installer warns about either file but deliberately does not alter it. The source tree is also checked for personal identifiers. No installation is performed on your current Mac by creating this repository.

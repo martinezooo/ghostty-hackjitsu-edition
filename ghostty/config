@@ -35,11 +35,10 @@ initial-window = false
 quit-after-last-window-closed = false
 
 quick-terminal-position = top
-# Zachowaj oryginalny rozmiar dropdownu z MacBooka: Ghostty domyslnie dla
-# pozycji top uzywa pelnej szerokosci ekranu i 400 px wysokosci. MacBook ma
-# logicznie 1728 px szerokosci, wiec 400x1728 odtwarza jego stary wyglad 1:1,
-# a na ultrawide ogranicza tylko szerokosc zamiast rozciagac sie do 5120 px.
-quick-terminal-size = 400px,1728px
+# Procenty zamiast stalej szerokosci MacBooka: Ghostty dopasowuje panel
+# do ekranu wskazanego myszka (takze mniejszego monitora sluzbowego).
+# Dla top: najpierw wysokosc, potem szerokosc.
+quick-terminal-size = 40%,90%
 quick-terminal-screen = mouse
 quick-terminal-autohide = true
 quick-terminal-space-behavior = move
