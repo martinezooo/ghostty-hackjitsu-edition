@@ -1,44 +1,45 @@
 #!/usr/bin/env bash
-# Isolated Hack-Jitsu first-run configurator (no private data in Git).
+# Canonical preferences: ~/.config/ghostty-hackjitsu/ui.conf (0600).
+# Rendered Ghostty and Zellij configurations are generated, not editable.
 set -euo pipefail
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
 HJ="$CONFIG_HOME/ghostty-hackjitsu"
 PREF="$HJ/ui.conf"
-TITLE="$(id -un)"
-BAR=classic
-OPTION=left
-THEME=hack-jitsu
-FONT=14
-OPACITY=0.9
+GC="$CONFIG_HOME/ghostty/config"
+ZC="$HJ/zellij/config.kdl"
+TITLE="$(id -un)" BAR=classic OPTION=left THEME=hack-jitsu FONT=14 OPACITY=0.9
 ACTION=wizard
+
 usage() {
   cat <<'HELP'
-hjsetup                          Interactive setup wizard
-hjsetup --show                   Print current preferences
-hjsetup --apply                  Re-render installed files after update
-hjsetup --title USERNAME --bar classic|compact --option left|right|both|off
-  --preview  Show two visual example layouts, without writing files.
-  Classic: full Zellij help; compact: one-line tab/status bar.
-  Left Option is Alt in Zellij; right Option remains useful for Polish typing.
+hjsetup                        Visual wizard (Powerlevel10k-style single keys)
+hjsetup --preview              Show samples without writing anything
+hjsetup --show                 Display saved settings
+hjsetup --apply                Regenerate Ghostty/Zellij from ui.conf
+hjsetup --title NAME --bar classic|compact --option left|right|both|off
+hjsetup --theme hack-jitsu|TokyoNight|'Catppuccin Frappe'
+hjsetup --font 12|14|16 --opacity 1|0.9|0.8
 HELP
 }
-valid_title() { [[ -n "$TITLE" && ${#TITLE} -le 48 && "$TITLE" =~ ^[a-zA-Z0-9_.\ -]+$ ]]; }
 validate() {
-  valid_title || { echo "Invalid title (ASCII letters/digits/space/._-, max 48)." >&2; return 2; }
-  case "$BAR" in classic|compact) ;; *) echo "Invalid bar: $BAR" >&2; return 2;; esac
-  case "$OPTION" in left|right|both|off) ;; *) echo "Invalid Option mode: $OPTION" >&2; return 2;; esac
-  case "$THEME" in hack-jitsu|TokyoNight|"Catppuccin Frappe") ;; *) echo "Invalid theme" >&2; return 2;; esac
-  case "$FONT" in 12|14|16) ;; *) echo "Invalid font size" >&2; return 2;; esac
-  case "$OPACITY" in 1|0.9|0.8) ;; *) echo "Invalid opacity" >&2; return 2;; esac
+  [[ -n "$TITLE" && ${#TITLE} -le 48 && "$TITLE" =~ ^[a-zA-Z0-9_.\ -]+$ ]] ||
+    { echo 'Invalid title: 1-48 ASCII letters/digits/spaces/._-' >&2; return 2; }
+  case "$BAR" in classic|compact);; *) echo 'Invalid bar' >&2; return 2;; esac
+  case "$OPTION" in left|right|both|off);; *) echo 'Invalid Option mapping' >&2; return 2;; esac
+  case "$THEME" in hack-jitsu|TokyoNight|'Catppuccin Frappe');; *) echo 'Invalid theme' >&2; return 2;; esac
+  case "$FONT" in 12|14|16);; *) echo 'Invalid font size' >&2; return 2;; esac
+  case "$OPACITY" in 1|0.9|0.8);; *) echo 'Invalid opacity' >&2; return 2;; esac
 }
-if [[ -e "$PREF" ]]; then
-  [[ -f "$PREF" && ! -L "$PREF" ]] || { echo "Unsafe preference file: $PREF" >&2; exit 2; }
+
+# Read data only: do not source/eval the prefs. Always read before --apply.
+if [[ -e "$PREF" || -L "$PREF" ]]; then
+  [[ -f "$PREF" && ! -L "$PREF" ]] || { echo "Unsafe preferences: $PREF" >&2; exit 2; }
   while IFS='=' read -r key value || [[ -n "$key" ]]; do
     case "$key" in
       title) TITLE="$value";; bar) BAR="$value";; option) OPTION="$value";;
       theme) THEME="$value";; font) FONT="$value";; opacity) OPACITY="$value";;
-      ''|\#*) ;; *) echo "Unknown preference: $key" >&2; exit 2;;
+      ''|\#*) ;; *) echo "Unknown ui.conf key: $key" >&2; exit 2;;
     esac
   done < "$PREF"
 fi
@@ -54,45 +55,69 @@ case "${1:-}" in
   '') ;;
   *) usage >&2; exit 2;;
 esac
-while (( $# )); do
+while (($#)); do
   case "$1" in
     --title|--bar|--option|--theme|--font|--opacity)
-      (( $# >= 2 )) || { echo "Missing value for $1" >&2; exit 2; }
-      case "$1" in --title) TITLE="$2";; --bar) BAR="$2";; --option) OPTION="$2";; --theme) THEME="$2";; --font) FONT="$2";; --opacity) OPACITY="$2";; esac
+      (($# >= 2)) || { echo "Missing value for $1" >&2; exit 2; }
+      case "$1" in
+        --title) TITLE="$2";; --bar) BAR="$2";; --option) OPTION="$2";;
+        --theme) THEME="$2";; --font) FONT="$2";; --opacity) OPACITY="$2";;
+      esac
       shift 2;;
-    *) echo "Unexpected argument: $1" >&2; exit 2;;
+    *) echo "Unknown argument: $1" >&2; exit 2;;
   esac
 done
-ask() {
-  local reply=""
-  printf '%s [%s]: ' "$1" "$2" >&2
-  IFS= read -r reply || true
-  printf '%s' "${reply:-$2}"
-}
 if [[ "$ACTION" == wizard ]]; then
-  [[ -t 0 && -t 1 ]] || { echo "TTY required; use --preview or --title/--bar/--option" >&2; exit 2; }
-  [[ -f "$HJ/hj-wizard.py" ]] || { echo "Visual wizard missing. Run install.sh first." >&2; exit 2; }
+  [[ -t 0 && -t 1 ]] || { echo 'TTY needed; use --preview for examples' >&2; exit 2; }
+  [[ -f "$HJ/hj-wizard.py" && ! -L "$HJ/hj-wizard.py" ]] ||
+    { echo 'Missing visual wizard; rerun install.sh' >&2; exit 2; }
   exec python3 "$HJ/hj-wizard.py"
 fi
 validate
-[[ -f "$HJ/ghostty-template.conf" && -f "$HJ/zellij/template.kdl" ]] || {
-  echo "Missing bundled templates; run ./install.sh first." >&2; exit 2;
-}
-[[ ! -L "$HJ/ghostty-template.conf" && ! -L "$HJ/zellij/template.kdl" ]] || exit 2
-[[ ! -L "$CONFIG_HOME/ghostty/config" && ! -L "$HJ/zellij/config.kdl" && ! -L "$PREF" ]] || {
-  echo 'Refusing symlinked config or preferences' >&2; exit 2;
-}
+for f in "$HJ/ghostty-template.conf" "$HJ/zellij/template.kdl"; do
+  [[ -f "$f" && ! -L "$f" ]] || { echo "Missing/unsafe template: $f" >&2; exit 2; }
+done
+for f in "$GC" "$ZC" "$PREF"; do
+  [[ ! -L "$f" && ( ! -e "$f" || -f "$f" ) ]] ||
+    { echo "Refusing unsafe destination: $f" >&2; exit 2; }
+done
 mkdir -p "$CONFIG_HOME/ghostty" "$HJ/zellij"
-gt="$(mktemp "$CONFIG_HOME/ghostty/.hj-temp.XXXXXX")"
-zt="$(mktemp "$HJ/zellij/.hj-temp.XXXXXX")"
-pt="$(mktemp "$HJ/.hj-prefs.XXXXXX")"
-trap 'rm -f "$gt" "$zt" "$pt"' EXIT
+gt="$(mktemp "$CONFIG_HOME/ghostty/.hj-ui.XXXXXXXX")"
+zt="$(mktemp "$HJ/zellij/.hj-ui.XXXXXXXX")"
+pt="$(mktemp "$HJ/.hj-ui.XXXXXXXX")"
+backup_dir=''
+changed=()
+success=0
+cleanup() {
+  local status=$? index dest previous
+  if (( ! success )); then
+    for index in "${changed[@]}"; do
+      case "$index" in
+        0) dest="$ZC"; previous="$backup_dir/zellij-ui";;
+        1) dest="$GC"; previous="$backup_dir/ghostty-ui";;
+        2) dest="$PREF"; previous="$backup_dir/preferences";;
+      esac
+      if [[ -n "$backup_dir" && -f "$previous" ]]; then
+        cp -p "$previous" "$dest" || true
+      else
+        rm -f "$dest"
+      fi
+    done
+  fi
+  rm -f "$gt" "$zt" "$pt"
+  if [[ -n "$backup_dir" && -d "$backup_dir" ]]; then
+    rmdir "$backup_dir" 2>/dev/null || true
+  fi
+  return "$status"
+}
+trap cleanup EXIT
+
 option_value="$OPTION"
 [[ "$OPTION" == both ]] && option_value=true
 [[ "$OPTION" == off ]] && option_value=false
 {
   cat "$HJ/ghostty-template.conf"
-  printf '\n# Generated locally by hjsetup. Do not commit account details.\n'
+  printf '\n# Generated by hjsetup from ui.conf, do not edit directly.\n'
   printf 'title = %s\nmacos-option-as-alt = %s\n' "$TITLE" "$option_value"
   printf 'theme = %s\nfont-size = %s\nbackground-opacity = %s\n' "$THEME" "$FONT" "$OPACITY"
   if [[ -f "$CONFIG_HOME/ghostty/hack-jitsu-red-icon.png" &&
@@ -103,32 +128,44 @@ option_value="$OPTION"
 layout=default
 [[ "$BAR" == compact ]] && layout=compact
 sed "s/^default_layout \"default\"$/default_layout \"$layout\"/" "$HJ/zellij/template.kdl" > "$zt"
-grep -Fqx "default_layout \"$layout\"" "$zt" || { echo "Unexpected Zellij template" >&2;exit 2; }
-if command -v zellij >/dev/null 2>&1; then
-  zellij --config "$zt" setup --check | grep -Fq '[CONFIG FILE]: Well defined.' || {
-    echo 'Zellij config validation failed' >&2; exit 2;
-  }
-fi
+grep -Fqx "default_layout \"$layout\"" "$zt" ||
+  { echo 'Unexpected Zellij template' >&2; exit 2; }
 printf 'title=%s\nbar=%s\noption=%s\ntheme=%s\nfont=%s\nopacity=%s\n' "$TITLE" "$BAR" "$OPTION" "$THEME" "$FONT" "$OPACITY" > "$pt"
-copy_if_changed() {
-  local from="$1" to="$2" name="$3" back
-  [[ ! -L "$to" ]] || { echo "Refusing symlink: $to" >&2; return 2; }
-  [[ ! -e "$to" || -f "$to" ]] || return 2
-  if [[ -f "$to" ]] && cmp -s "$from" "$to"; then return 0; fi
-  if [[ -f "$to" ]]; then
-    back="$STATE_HOME/ghostty-hackjitsu/backups/$(date +%Y%m%d-%H%M%S)"
-    mkdir -p "$back"
-    cp -p "$to" "$back/$name"
-  fi
-  chmod 600 "$from"
-  mv "$from" "$to"
-  echo "Updated: $to"
-}
-# Candidate configs are validated before any destination is modified.
-copy_if_changed "$zt" "$HJ/zellij/config.kdl" zellij-ui
-copy_if_changed "$gt" "$CONFIG_HOME/ghostty/config" ghostty-ui
-if [[ "$ACTION" != apply ]]; then
-  copy_if_changed "$pt" "$PREF" preferences
+# Validate both candidates before changing anything.
+if command -v zellij >/dev/null 2>&1; then
+  zellij --config "$zt" setup --check | grep -Fq '[CONFIG FILE]: Well defined.' ||
+    { echo 'Generated Zellij config failed native validation' >&2; exit 2; }
 fi
-echo "Title: $TITLE | Bar: $BAR | Theme: $THEME | Font: $FONT | Opacity: $OPACITY | Option: $OPTION"
-echo 'A new Zellij session is needed for the new bar layout. Existing sessions are not touched.'
+ghostty_bin="$(command -v ghostty || true)"
+if [[ -z "$ghostty_bin" && -x /Applications/Ghostty.app/Contents/MacOS/ghostty ]]; then
+  ghostty_bin=/Applications/Ghostty.app/Contents/MacOS/ghostty
+fi
+if [[ -n "$ghostty_bin" ]]; then
+  "$ghostty_bin" +validate-config "--config-file=$gt" >/dev/null 2>&1 ||
+    { echo 'Generated Ghostty config failed native validation' >&2; exit 2; }
+fi
+# Snapshot all changed files with a unique directory before the first write.
+candidates=("$zt" "$gt" "$pt")
+destinations=("$ZC" "$GC" "$PREF")
+labels=(zellij-ui ghostty-ui preferences)
+for i in 0 1 2; do
+  if [[ -f "${destinations[i]}" ]] && cmp -s "${candidates[i]}" "${destinations[i]}"; then continue; fi
+  if [[ -f "${destinations[i]}" ]]; then
+    if [[ -z "$backup_dir" ]]; then
+      ( umask 077; mkdir -p "$STATE_HOME/ghostty-hackjitsu/backups" )
+      backup_dir="$(mktemp -d "$STATE_HOME/ghostty-hackjitsu/backups/ui-XXXXXXXX")"
+    fi
+    cp -p "${destinations[i]}" "$backup_dir/${labels[i]}"
+  fi
+done
+for i in 0 1 2; do
+  if [[ -f "${destinations[i]}" ]] && cmp -s "${candidates[i]}" "${destinations[i]}"; then continue; fi
+  changed+=("$i")
+  chmod 600 "${candidates[i]}"
+  mv "${candidates[i]}" "${destinations[i]}"
+  echo "Updated: ${destinations[i]}"
+done
+success=1
+echo "Saved UI preferences: $PREF"
+printf 'Title: %s | Bar: %s | Theme: %s | Font: %s | Opacity: %s | Option: %s\n' "$TITLE" "$BAR" "$THEME" "$FONT" "$OPACITY" "$OPTION"
+echo 'A new Zellij session will use the selected bar; existing sessions remain untouched.'

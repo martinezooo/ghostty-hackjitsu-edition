@@ -14,12 +14,12 @@ GC="$XDG_CONFIG_HOME/ghostty/config"
 ZC="$XDG_CONFIG_HOME/ghostty-hackjitsu/zellij/config.kdl"
 PREF="$XDG_CONFIG_HOME/ghostty-hackjitsu/ui.conf"
 test -x "$SETUP" || test -r "$SETUP"
-test ! -e "$PREF"
+test -e "$PREF"
 bash "$SETUP" --preview >"$TMP/preview.txt"
-grep -Fq 'Ghostty • dark / red' "$TMP/preview.txt"
-grep -Fq 'Zellij classic / 2 lines' "$TMP/preview.txt"
-grep -Fq 'Zellij compact / 1 line' "$TMP/preview.txt"
-test ! -e "$PREF"
+grep -Fq 'Prompt Colors' "$TMP/preview.txt"
+grep -Fq 'Classic. Full keyboard shortcuts.' "$TMP/preview.txt"
+grep -Fq 'Compact. One line with tabs.' "$TMP/preview.txt"
+test -e "$PREF"
 grep -Fqx "title = $(id -un)" "$GC"
 grep -Fqx 'macos-option-as-alt = left' "$GC"
 grep -Fqx 'default_layout "default"' "$ZC"
@@ -29,7 +29,7 @@ if bash "$SETUP" </dev/null >"$TMP/wizard.out" 2>&1; then
   echo 'Wizard must require a TTY' >&2
   exit 1
 fi
-test ! -e "$PREF"
+test -e "$PREF"
 # Programmatic wizard choices act exactly like interactive choices.
 bash "$SETUP" --title 'analyst' --bar compact --option both >"$TMP/compact.out"
 grep -Fqx 'title = analyst' "$GC"

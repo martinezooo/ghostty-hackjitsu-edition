@@ -69,30 +69,55 @@ For the guided experience seen in `p10k configure`, run the installer
    saves only the generated config to
    `~/.config/ghostty-hackjitsu/zsh/.p10k.zsh`. Never edits your
    personal `~/.zshrc` or `~/.p10k.zsh`.
-2. **Hack-Jitsu previews**: the second wizard shows colorful terminal
-   examples **before selecting** Ghostty theme (Hack-Jitsu red, TokyoNight
-   blue, Catppuccin Frappe plum), Zellij bar (classic full help vs compact),
-   font size (12/14/16pt), transparency (100/90/80%), and Mac Option mapping.
-   Use `p` at the theme step to open **Ghostty's native live
-   `+list-themes` preview** instead of relying on the approximate
-   sample cards. The demo reflects the main settings; it is not an actual
-   screenshot of the final GPU-rendered terminal.
+2. **Hack-Jitsu previews**: the second wizard follows Powerlevel10k's
+   *actual interaction pattern* rather than decorative cards. One screen
+   shows all numbered choices and rendered terminal examples. Select with
+   **one key, no Enter**; the next question appears immediately. Screens
+   adapt to terminal size and redraw on resize. Use `r` to restart,
+   `b` to return to the previous question and `q` to quit
+   **without saving**. Only an optional custom title requires Enter.
+   It covers Ghostty colors, Zellij classic/compact bar, font, opacity,
+   Mac Option and window title. At the final summary, **press 1 to save**.
 
-**Only the last explicit confirmation saves the second wizard's choices.**
-`q` cancels without writing changes. No personal usernames or
-machine-specific settings are committed to GitHub.
+   Presentation/controls are based on Powerlevel10k's
+   [MIT-licensed wizard source](https://github.com/romkatv/powerlevel10k/blob/master/internal/wizard.zsh):
+   stacked numbered prompts, key-by-key input, screen-size-aware fallbacks,
+   and restart/abort. Zellij examples are terminal-rendered illustrations,
+   not screenshots. ANSI also cannot change actual Ghostty font pixels or
+   macOS transparency; these appear after application. Use `p`
+   at the theme stage for Ghostty's native `+list-themes` preview.
 
-You can repeat setup later:
+**Configuration locations and single source of truth:**
+
+| Path | Purpose |
+|---|---|
+| `~/.config/ghostty-hackjitsu/ui.conf` | **Canonical** title, Zellij bar, theme, font, opacity and Option mapping (0600). |
+| `~/.config/ghostty/config` | Generated from `ui.conf` + Ghostty template; do not edit independently. |
+| `~/.config/ghostty-hackjitsu/zellij/config.kdl` | Generated from the same `ui.conf` + Zellij template. |
+| `~/.config/ghostty-hackjitsu/zsh/.p10k.zsh` | P10K's independent prompt data; it is not a duplicate of UI preferences. |
+| `~/.config/ghostty-hackjitsu/zsh/enable-p10k` | Marker enabling P10K only after successful configuration. |
+
+The installer creates a default `ui.conf` on first installation.
+Subsequent installations read it, and `hjsetup --apply` regenerates
+Ghostty and Zellij from those same values. No separate copies of
+preferences are maintained in the repository. The wizard keeps a draft
+in memory until its final confirmation. Configs are validated by
+Ghostty and Zellij **before saving**; modified files receive unique
+backups and any detected write failure is rolled back. If the
+process is forcibly killed mid-write, rerun `hjsetup --apply` to restore
+all derived files from the authoritative `ui.conf`.
+Your personal `~/.zshrc` and `~/.p10k.zsh` are untouched.
 
 ```bash
-hjsetup                         # visual preview wizard only
-hjsetup --preview               # show the two layouts without changes
-hjsetup --all                   # Powerlevel10k first, then visual wizard
-hjp10k                          # Powerlevel10k only
-hjsetup --show                  # current settings, no changes
+hjsetup                         # seven-page P10K-style visual wizard
+hjsetup --preview               # read-only example gallery
+hjsetup --all                   # run P10K first, then Hack-Jitsu
+hjp10k                          # P10K only
+hjsetup --show                  # show saved canonical settings
+hjsetup --apply                 # regenerate both outputs from ui.conf
 hjsetup --bar compact --theme TokyoNight --font 16 --opacity 0.8
-hjsetup --option left           # left Option = Alt, right Option types Polish
 ```
+
 
 Powerlevel10k is now an **optional installed dependency** (`brew install
 powerlevel10k` with the standard installer). It is **enabled only after
@@ -172,7 +197,11 @@ History files are **never included in the repository** or copied to other machin
 
 ## Default Zellij workspace
 
-When you open the **local Ghostty dropdown**, its isolated Zsh profile automatically attaches to the persistent Zellij session named `hackjitsu`. You can use Zellij tabs and panes immediately; no `wave`, tmux or additional terminal setup is required. `wave` remains as an optional compatibility command to reattach after leaving the session. There is **no auto-launch over SSH, inside another Zellij/tmux session, or in noninteractive shells**.
+Opening the **local Ghostty dropdown** starts a **fresh Zellij session**
+with a short unique name. It never reattaches an old editor automatically.
+After leaving the current session, you may manually resume an old one using
+`wave [session-name]`. No auto-launch over SSH, inside another
+Zellij/tmux session, or in noninteractive shells.
 
 To temporarily disable automatic Zellij startup for your user, run `touch ~/.config/ghostty-hackjitsu/zsh/no-auto-zellij` and open a new Ghostty shell. Remove that file to re-enable the default behavior. Missing Zellij falls back to ordinary Zsh with a warning instead of breaking the terminal.
 
