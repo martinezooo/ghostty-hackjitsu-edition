@@ -16,18 +16,14 @@ NO_NVIM=0
 CHECK_ONLY=0
 STRICT_CHECK=0
 USER_INSTALL=-1
-LAUNCH_GHOSTTY=auto
-RESTART_GHOSTTY=auto
+QUIT_GHOSTTY=1
 
 usage() {
   cat <<'EOF'
-Usage: ./install.sh [--dry-run] [--check] [--launch|--no-launch] [--restart|--no-restart] [--user] [--system] [--no-brew] [--no-shell] [--no-nvim] [--tools] [--strict]
+Usage: ./install.sh [--dry-run] [--check] [--no-quit] [--user] [--system] [--no-brew] [--no-shell] [--no-nvim] [--tools] [--strict]
   --dry-run   Show intended changes without writing or installing anything
   --check     Verify installed packages and settings without changing anything
-  --launch    Open Ghostty after installation, even without an interactive TTY
-  --no-launch Do not start Ghostty automatically
-  --restart   Restart an existing Ghostty session (closes its tabs)
-  --no-restart Preserve running Ghostty sessions; reload manually
+  --no-quit   Leave Ghostty running after installation (not recommended)
   --user      Force per-user mode: no sudo; use ~/Applications for Ghostty
   --system    Force system-wide casks (needs administrator rights)
   --strict    Treat verification warnings as errors
@@ -42,10 +38,11 @@ for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=1 ;;
     --check) CHECK_ONLY=1 ;;
-    --launch) LAUNCH_GHOSTTY=yes ;;
-    --no-launch) LAUNCH_GHOSTTY=no ;;
-    --restart) RESTART_GHOSTTY=yes; LAUNCH_GHOSTTY=yes ;;
-    --no-restart) RESTART_GHOSTTY=no ;;
+    --no-quit) QUIT_GHOSTTY=0 ;;
+    --launch|--no-launch|--restart|--no-restart)
+      echo "ERROR: $arg is obsolete. Installation now quits Ghostty without relaunching." >&2
+      echo "       Run ./install.sh (or --no-quit to preserve current sessions)." >&2
+      exit 2 ;;
     --user) USER_INSTALL=1 ;;
     --system) USER_INSTALL=0 ;;
     --strict) STRICT_CHECK=1 ;;
@@ -112,14 +109,18 @@ if [ -n "$GHOSTTY" ] && [ -x "$GHOSTTY" ]; then
     check_fail "Ghostty configuration validation failed: ghostty +validate-config"
   fi
   effective="$("$GHOSTTY" +show-config 2>/dev/null)" || effective=""
-  if grep -Fq 'theme = hack-jitsu' <<< "$effective" &&
+  if grep -Fq 'macos-hidden = always' <<< "$effective" &&
+     grep -Fq 'initial-window = false' <<< "$effective" &&
+     grep -Fq 'window-save-state = never' <<< "$effective" &&
+     grep -Fq 'theme = hack-jitsu' <<< "$effective" &&
      grep -Fq 'font-family = JetBrainsMono Nerd Font Mono' <<< "$effective" &&
      grep -Fq 'quick-terminal-size = 40%,90%' <<< "$effective" &&
      grep -Fq 'hack-jitsu-cursor.glsl' <<< "$effective" &&
      grep -Fq 'hack-jitsu-watermark.png' <<< "$effective"; then
-    check_pass "Ghostty active theme, font, dropdown, shader and watermark"
+    check_pass "Ghostty headless mode, theme, font, dropdown, shader and watermark"
   else
-    check_fail "Ghostty effective configuration does not match Hack-Jitsu profile"
+    check_fail "Ghostty effective configuration does not match Hack-Jitsu headless profile"
+    check_fail "Review ~/.config/ghostty/config and any overrides in ~/Library/Application Support/com.mitchellh.ghostty/"
   fi
   bindings="$("$GHOSTTY" +list-keybinds 2>/dev/null)" || bindings=""
   if grep -Eq 'alt\+tab=toggle_quick_terminal' <<< "$bindings"; then
@@ -494,7 +495,7 @@ fi
 if [ "$DRY_RUN" -eq 1 ]; then
   echo
   echo "DRY RUN COMPLETE: no applications, settings, or files were changed."
-  echo "Run ./install.sh to install, then press Option+Tab after Ghostty starts."
+  echo "Run ./install.sh to install and shut down Ghostty, then launch it manually for dropdown use."
   exit 0
 fi
 
@@ -515,8 +516,9 @@ else
   echo " HACK-JITSU EDITION | SETUP NEEDS ATTENTION"
 fi
 echo "============================================================"
-echo " Ghostty is a HIDDEN dropdown terminal:"
-echo "   1. Start Ghostty once (it will not appear in the Dock)."
+echo " AFTER INSTALLATION: Ghostty will QUIT COMPLETELY."
+echo " To use the dropdown later:"
+echo "   1. Start Ghostty once from Applications or with: open -a Ghostty"
 echo "   2. Press Option (Alt) + Tab to show/hide it."
 echo "   3. If the shortcut fails, grant Ghostty access in:"
 echo "      System Settings > Privacy & Security > Accessibility"
@@ -535,100 +537,72 @@ echo " DIAGNOSTICS"
 echo "   ./install.sh --check    Read-only validation"
 echo "   ./install.sh --dry-run  Preview changes"
 echo "   Re-run ./install.sh safely: existing packages are skipped."
+echo "   Installed but not running: expected after setup."
 echo "============================================================"
 
 if [ "$verify_status" -ne 0 ]; then
   echo "ERROR: Some installation checks failed. Review [FAIL] above." >&2
+  echo "       Ghostty will still be closed to avoid retaining the old session." >&2
   echo "       Fix those items and rerun ./install.sh --check." >&2
-  exit "$verify_status"
 fi
 
-# macOS Quick Terminal position/geometry can require a FULL app restart.
-# Do not blindly kill existing sessions, as tabs may contain running commands.
+# Changes to quick-terminal geometry and macos-hidden require a full quit.
+# Never launch Ghostty as a side effect of installation.
+# The whole procedure is skipped by --check/--dry-run above.
 ghostty_running() { pgrep -ix ghostty >/dev/null 2>&1; }
-app=""
-if [ -d "$HOME/Applications/Ghostty.app" ]; then
-  app="$HOME/Applications/Ghostty.app"
-elif [ -d /Applications/Ghostty.app ]; then
-  app=/Applications/Ghostty.app
-fi
 
-open_ghostty() {
-  if ! command -v open >/dev/null 2>&1; then return 1; fi
-  if [ -n "$app" ]; then
-    open "$app" >/dev/null 2>&1
-  else
-    open -a Ghostty >/dev/null 2>&1
-  fi
-}
-
-# Deferral is important if the installer itself is running INSIDE Ghostty:
-# the terminal session must first return so the summary can be read.
-restart_ghostty() {
-  if ! command -v osascript >/dev/null 2>&1; then
-    echo "WARNING: osascript unavailable; quit and reopen Ghostty manually."
-    return 1
-  fi
-  if [ "${TERM_PROGRAM:-}" = ghostty ]; then
-    echo "Restarting Ghostty after this installer finishes; active Ghostty tabs will close."
-    echo "After restart, press Option + Tab to open the responsive dropdown."
-    nohup /bin/bash -c '
-      sleep 3
-      osascript -e '\''tell application "Ghostty" to quit'\'' >/dev/null 2>&1 || exit 1
-      for i in {1..30}; do
-        pgrep -ix ghostty >/dev/null 2>&1 || break
-        sleep 0.2
-      done
-      if pgrep -ix ghostty >/dev/null 2>&1; then exit 1; fi
-      if [ -n "$1" ]; then open "$1" >/dev/null 2>&1; else open -a Ghostty >/dev/null 2>&1; fi
-    ' _ "$app" >/dev/null 2>&1 </dev/null &
+quit_ghostty() {
+  if ! ghostty_running; then
+    echo "[PASS] Ghostty is already stopped. No extra windows or Dock process."
     return 0
   fi
-  if ! osascript -e 'tell application "Ghostty" to quit' >/dev/null 2>&1; then
-    echo "WARNING: macOS refused the graceful Ghostty quit. Restart it manually."
-    return 1
+  echo "Closing Ghostty completely (all tabs and active shell sessions will close)."
+  if command -v osascript >/dev/null 2>&1; then
+    osascript -e 'tell application id "com.mitchellh.ghostty" to quit' >/dev/null 2>&1 || true
   fi
-  for i in {1..30}; do
+  local i
+  for i in {1..20}; do
     ghostty_running || break
     sleep 0.2
   done
   if ghostty_running; then
-    echo "WARNING: Ghostty is still running (maybe close confirmation). Restart manually."
+    echo "INFO: Ghostty remained after graceful quit; sending SIGTERM to its processes."
+    if ! pkill -TERM -ix ghostty 2>/dev/null; then
+      echo "[WARN] Unable to send termination signal to Ghostty." >&2
+    fi
+    for i in {1..20}; do
+      ghostty_running || break
+      sleep 0.2
+    done
+  fi
+  if ghostty_running; then
+    echo "[FAIL] Ghostty is still running. Close it in Activity Monitor." >&2
     return 1
   fi
-  if open_ghostty; then
-    echo "Ghostty restarted with the updated display-relative dropdown size."
-    return 0
-  fi
-  echo "WARNING: Ghostty quit, but could not be reopened. Use: open -a Ghostty"
-  return 1
+  echo "[PASS] Ghostty completely stopped. It will NOT be relaunched."
 }
 
-if [ "$LAUNCH_GHOSTTY" = auto ]; then
-  LAUNCH_GHOSTTY=no
-  if [ -t 0 ] && [ -t 1 ]; then LAUNCH_GHOSTTY=yes; fi
-fi
-if [ "$LAUNCH_GHOSTTY" != yes ]; then
-  echo "Start Ghostty: open -a Ghostty (then Option + Tab)."
-elif ghostty_running; then
-  if [ "$RESTART_GHOSTTY" = auto ]; then
-    RESTART_GHOSTTY=no
-    if [ -t 0 ] && [ -t 1 ]; then
-      printf 'Ghostty is running. Restart to apply new dropdown size? Existing tabs will close. [Y/n] '
-      answer=''
-      IFS= read -r answer || true
-      case "$answer" in ""|y|Y|yes|YES) RESTART_GHOSTTY=yes ;; esac
-    fi
+if [ "$QUIT_GHOSTTY" -eq 1 ]; then
+  if [ "${TERM_PROGRAM:-}" = ghostty ]; then
+    # The parent shell is inside Ghostty. Let installer finish printing before
+    # terminating its host application. The detached helper never reopens it.
+    echo "Ghostty will quit completely after this terminal session finishes."
+    nohup /bin/bash -c '
+      sleep 2
+      if ! pgrep -ix ghostty >/dev/null 2>&1; then exit 0; fi
+      osascript -e '\''tell application id "com.mitchellh.ghostty" to quit'\'' >/dev/null 2>&1 || true
+      for i in {1..20}; do
+        pgrep -ix ghostty >/dev/null 2>&1 || exit 0
+        sleep 0.2
+      done
+      pkill -TERM -ix ghostty >/dev/null 2>&1 || true
+    ' >/dev/null 2>&1 </dev/null &
+    echo "No automatic restart. Start Ghostty later to use Option + Tab."
+  elif ! quit_ghostty; then
+    exit 1
   fi
-  if [ "$RESTART_GHOSTTY" = yes ]; then
-    restart_ghostty || true
-  else
-    echo "Ghostty is running; did not close existing tabs."
-    echo "To apply the new window geometry, quit Ghostty fully and reopen it."
-    echo "Or run ./install.sh --restart to perform a graceful restart."
-  fi
-elif open_ghostty; then
-  echo "Ghostty launched. Its Dock icon is intentionally hidden. Press Option + Tab."
 else
-  echo "WARNING: Could not start Ghostty. Start it manually via Applications."
+  echo "INFO: --no-quit requested; Ghostty was left running."
 fi
+
+exit "$verify_status"

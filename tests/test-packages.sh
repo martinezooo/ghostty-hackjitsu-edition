@@ -40,7 +40,10 @@ cat > "$TMP/bin/ghostty" <<'EOF'
 #!/bin/sh
 case "$1" in
   +validate-config) exit 0 ;;
-  +show-config) printf '%s\n' 'theme = hack-jitsu' \
+  +show-config) printf '%s\n' 'macos-hidden = always' \
+      'initial-window = false' \
+      'window-save-state = never' \
+      'theme = hack-jitsu' \
     'font-family = JetBrainsMono Nerd Font Mono' \
     'quick-terminal-size = 40%,90%' \
     'hack-jitsu-cursor.glsl' 'hack-jitsu-watermark.png';;
@@ -62,28 +65,28 @@ export HJ_TEST_PREFIX="$TMP/prefix"
 export HJ_TEST_BIN="$TMP/bin"
 export HJ_TEST_READY="$TMP/tree-sitter.installed"
 : > "$HJ_TEST_BREW_LOG"
-bash "$ROOT/install.sh" --no-nvim --no-shell >"$TMP/first.log"
+bash "$ROOT/install.sh" --no-quit --no-nvim --no-shell >"$TMP/first.log"
 test ! -s "$HJ_TEST_BREW_LOG"
 grep -Fq 'SKIP ghostty:' "$TMP/first.log"
 grep -Fq 'SKIP font-jetbrains-mono-nerd-font:' "$TMP/first.log"
 grep -Fq 'SKIP navi:' "$TMP/first.log"
 grep -q 'Summary: .* 0 FAIL' "$TMP/first.log"
-bash "$ROOT/install.sh" --no-nvim --no-shell >"$TMP/second.log"
+bash "$ROOT/install.sh" --no-quit --no-nvim --no-shell >"$TMP/second.log"
 test ! -s "$HJ_TEST_BREW_LOG"
 grep -Fq 'OK unchanged:' "$TMP/second.log"
 # "Check" never calls Homebrew install even when a file is missing.
 rm "$XDG_CONFIG_HOME/ghostty/themes/hack-jitsu"
-if bash "$ROOT/install.sh" --check --no-nvim --no-shell >"$TMP/check.log" 2>&1; then
+if bash "$ROOT/install.sh" --no-quit --check --no-nvim --no-shell >"$TMP/check.log" 2>&1; then
   echo 'Expected failed check for missing theme' >&2; exit 1
 fi
 test ! -s "$HJ_TEST_BREW_LOG"
 grep -Fq '[FAIL] Ghostty asset: themes/hack-jitsu' "$TMP/check.log"
 # A missing CLI component is installed once, without sudo on the mock staff account.
 export HJ_TEST_MISSING=tree-sitter-cli
-bash "$ROOT/install.sh" --no-shell >"$TMP/missing-installed.log"
+bash "$ROOT/install.sh" --no-quit --no-shell >"$TMP/missing-installed.log"
 grep -Fq 'install tree-sitter-cli (no_sudo=1)' "$HJ_TEST_BREW_LOG"
 grep -Fq 'SKIP ghostty:' "$TMP/missing-installed.log"
-bash "$ROOT/install.sh" --no-shell >"$TMP/missing-second.log"
+bash "$ROOT/install.sh" --no-quit --no-shell >"$TMP/missing-second.log"
 test "$(wc -l < "$HJ_TEST_BREW_LOG" | tr -d ' ')" -eq 1
 grep -Fq 'SKIP tree-sitter-cli:' "$TMP/missing-second.log"
 echo 'PASS: existing packages skipped, one missing tool installed once without sudo, diagnostic read-only'

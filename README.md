@@ -10,8 +10,8 @@ Homebrew is required (https://brew.sh). Clone this repository on the Mac where y
 git clone https://github.com/martinezooo/ghostty-hackjitsu-edition.git
 cd ghostty-hackjitsu-edition
 ./install.sh --dry-run
-./install.sh
-./install.sh --check
+./install.sh            # installs, verifies, and completely quits Ghostty
+./install.sh --check    # checks without any changes or quitting Ghostty
 ```
 
 The installer **skips components that are already installed** (Ghostty app, Nerd Font, or existing Homebrew formulas / CLI executables). Otherwise it uses Homebrew to install Ghostty, JetBrains Mono Nerd Font, Navi, fzf, Zellij, Neovim, lazygit, ripgrep, fd, and tree-sitter-cli. Ghostty is configured to use the actual font family `JetBrainsMono Nerd Font Mono`; using the font's package name as its family name can silently fall back to the bundled font. Existing files are backed up under `~/.local/state/ghostty-hackjitsu/backups/` before replacement. It never replaces the entire shell or SSH configuration.
@@ -24,11 +24,13 @@ Optional flags: `--check` (read-only verification built into `install.sh`), `--s
 
 A built-in diagnostic runs automatically at the end of a normal installation and displays `[PASS]`, `[WARN]` and `[FAIL]` results for applications, CLI tools, fonts, configuration, shortcuts and cheat sheets. Run `./install.sh --check` at any time to verify the machine **without changing anything**; it returns exit code 1 for missing required components. Use `./install.sh --check --strict` to also fail on warnings. The first Neovim startup downloads LazyVim plugins, so an initial warning about uninitialized plugins is expected until you start `nvim` once.
 
-## First launch and restart
+## First launch and clean shutdown
 
-The installer prints a **full, immediate Quick Start summary** with the global hotkey, terminal commands and troubleshooting. In an interactive terminal it also starts Ghostty if it is not yet running. When Ghostty is already running, it asks permission to restart it to apply new dropdown geometry (existing Ghostty tabs will close); `--restart` explicitly requests a graceful restart, while `--no-restart` preserves sessions. If the installer runs inside Ghostty, the restart is deferred briefly so the script can finish before the app quits. `--no-launch` prevents automatic launch. No GUI actions occur in `--dry-run` or `--check`.
+**On every successful installation or reinstall, Ghostty is shut down completely and is NOT relaunched.** The installer prints a Quick Start summary before quitting. Existing Ghostty tabs/shell sessions will close; save your work first. From another terminal, it requests a normal macOS quit, then sends SIGTERM only if the app remains running. From inside Ghostty, the quit is deferred briefly until the installer finishes printing.
 
-Because Ghostty uses `macos-hidden = always` and `initial-window = false`, **no ordinary terminal window or Dock icon will appear**: start Ghostty and use **Option + Tab** to reveal it. The first Ghostty shell shows a short welcome with `hj`, `hjhelp`, `wave` and `nvim`. The global shortcut requires macOS Accessibility permission.
+When you later want the dropdown, manually start Ghostty **once** using `open -a Ghostty` or from Applications. Its intended settings (`macos-hidden = always`, `initial-window = false`, `window-save-state = never`) hide the Dock icon and normal window. Once the app is running, use **Option + Tab**. The shortcut cannot work while Ghostty is fully shut down. If a standard window or Dock icon still appears, run `./install.sh --check` to inspect the **effective configuration**: files in `~/Library/Application Support/com.mitchellh.ghostty/` can override our XDG settings.
+
+The installer provides `--no-quit` to preserve active sessions when deliberately needed; `--dry-run` and `--check` never close Ghostty. The old `--launch` and `--restart` flags are removed because they caused unwanted windows/restarts.
 
 ## Hack-Jitsu shell prompt
 

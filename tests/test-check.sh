@@ -23,7 +23,10 @@ cat > "$TMP/bin/ghostty" <<'EOF'
 case "$1" in
   +validate-config) exit 0 ;;
   +show-config)
-    printf '%s\n' 'theme = hack-jitsu' \
+    printf '%s\n' 'macos-hidden = always' \
+      'initial-window = false' \
+      'window-save-state = never' \
+      'theme = hack-jitsu' \
       'font-family = JetBrainsMono Nerd Font Mono' \
       'quick-terminal-size = 40%,90%' \
       'custom-shader = shaders/hack-jitsu-cursor.glsl' \
@@ -44,13 +47,13 @@ for name in fzf zellij; do
 done
 chmod +x "$TMP/bin"/*
 
-bash "$ROOT/install.sh" --no-brew --no-shell --no-nvim >"$TMP/config-only.log"
-bash "$ROOT/install.sh" --check --no-nvim --no-shell >"$TMP/pass.log"
+bash "$ROOT/install.sh" --no-quit --no-brew --no-shell --no-nvim >"$TMP/config-only.log"
+bash "$ROOT/install.sh" --no-quit --check --no-nvim --no-shell >"$TMP/pass.log"
 grep -Fq '[PASS] Navi reads Hack-Jitsu cheats' "$TMP/pass.log"
 grep -Eq 'Summary: [0-9]+ PASS \| 0 WARN \| 0 FAIL' "$TMP/pass.log"
 
 # Full installer invokes doctor automatically after the package stage.
-bash "$ROOT/install.sh" --no-nvim --no-shell >"$TMP/automatic.log"
+bash "$ROOT/install.sh" --no-quit --no-nvim --no-shell >"$TMP/automatic.log"
 grep -Fq '=== Installation verification ===' "$TMP/automatic.log"
 grep -Fq 'HACK-JITSU EDITION | SETUP FINISHED' "$TMP/automatic.log"
 grep -Fq 'Press Option (Alt) + Tab' "$TMP/automatic.log"
@@ -58,7 +61,7 @@ grep -Eq 'Summary: [0-9]+ PASS \| 0 WARN \| 0 FAIL' "$TMP/automatic.log"
 
 # Missing file must be a failing diagnosis, not a false success.
 mv "$XDG_CONFIG_HOME/ghostty-hackjitsu/cheats/network.cheat" "$TMP/network.cheat"
-if bash "$ROOT/install.sh" --check --no-nvim --no-shell >"$TMP/fail.log" 2>&1; then
+if bash "$ROOT/install.sh" --no-quit --check --no-nvim --no-shell >"$TMP/fail.log" 2>&1; then
   echo "Expected doctor to fail when cheats are missing" >&2
   exit 1
 fi
@@ -69,9 +72,9 @@ mv "$TMP/network.cheat" "$XDG_CONFIG_HOME/ghostty-hackjitsu/cheats/network.cheat
 legacy="$HOME/Library/Application Support/com.mitchellh.ghostty"
 mkdir -p "$legacy"
 echo 'window-padding-x = 1' > "$legacy/config.ghostty"
-bash "$ROOT/install.sh" --check --no-nvim --no-shell >"$TMP/warn.log"
+bash "$ROOT/install.sh" --no-quit --check --no-nvim --no-shell >"$TMP/warn.log"
 grep -Fq '[WARN] Additional Ghostty config exists' "$TMP/warn.log"
-if bash "$ROOT/install.sh" --check --no-nvim --no-shell --strict >"$TMP/strict.log" 2>&1; then
+if bash "$ROOT/install.sh" --no-quit --check --no-nvim --no-shell --strict >"$TMP/strict.log" 2>&1; then
   echo "Expected strict doctor to fail when warnings exist" >&2
   exit 1
 fi
