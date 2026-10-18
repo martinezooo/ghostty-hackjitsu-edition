@@ -19,13 +19,41 @@ CHECK_ONLY=0
 STRICT_CHECK=0
 USER_INSTALL=-1
 QUIT_GHOSTTY=1
+RELAUNCH_GHOSTTY=1
+
+# Color is enabled only for an interactive terminal (or an explicit test
+# override). Redirected logs and CI output stay plain and grep-friendly.
+if [[ -z "${NO_COLOR:-}" && "${HJ_INSTALL_COLOR:-auto}" != never ]] &&
+   { [[ -t 1 ]] || [[ "${HJ_INSTALL_COLOR:-auto}" == always ]]; }; then
+  HJ_GREEN=$'\033[1;32m'
+  HJ_YELLOW=$'\033[1;33m'
+  HJ_RED=$'\033[1;31m'
+  HJ_BLUE=$'\033[1;36m'
+  HJ_RESET=$'\033[0m'
+else
+  HJ_GREEN='' HJ_YELLOW='' HJ_RED='' HJ_BLUE='' HJ_RESET=''
+fi
+status() {
+  local label="$1" message="$2" color=''
+  case "$label" in
+    PASS|COPY|READY) color="$HJ_GREEN" ;;
+    WARN|SKIP|BACKUP) color="$HJ_YELLOW" ;;
+    FAIL|ERROR) color="$HJ_RED" ;;
+    INFO|PLAN|INSTALL) color="$HJ_BLUE" ;;
+  esac
+  case "$label" in
+    PASS|WARN|FAIL|ERROR|INFO) printf '%s[%s]%s %s\n' "$color" "$label" "$HJ_RESET" "$message" ;;
+    *) printf '%s%s%s %s\n' "$color" "$label" "$HJ_RESET" "$message" ;;
+  esac
+}
 
 usage() {
   cat <<'EOF'
-Usage: ./install.sh [--dry-run] [--check] [--no-quit] [--user] [--system] [--no-brew] [--no-shell] [--no-nvim] [--no-lazy-sync] [--setup] [--tools] [--strict]
+Usage: ./install.sh [--dry-run] [--check] [--no-quit] [--user] [--system] [--no-brew] [--no-shell] [--no-nvim] [--no-lazy-sync] [--setup] [--no-relaunch] [--tools] [--strict]
   --dry-run   Show intended changes without writing or installing anything
   --check     Verify installed packages and settings without changing anything
-  --no-quit   Leave Ghostty running after installation (not recommended)
+  --no-quit   Leave Ghostty running; skip restart (safe for active sessions)
+  --no-relaunch Stop Ghostty after installation instead of reopening it
   --user      Force per-user mode: no sudo; use ~/Applications for Ghostty
   --system    Force system-wide casks (needs administrator rights)
   --strict    Treat verification warnings as errors
@@ -44,9 +72,10 @@ for arg in "$@"; do
     --check) CHECK_ONLY=1 ;;
     --no-quit) QUIT_GHOSTTY=0 ;;
     --launch|--no-launch|--restart|--no-restart)
-      echo "ERROR: $arg is obsolete. Installation now quits Ghostty without relaunching." >&2
-      echo "       Run ./install.sh (or --no-quit to preserve current sessions)." >&2
+      echo "ERROR: $arg is obsolete. Installation restarts Ghostty by default." >&2
+      echo "       Run ./install.sh, --no-quit to retain it, or --no-relaunch to stop it." >&2
       exit 2 ;;
+    --no-relaunch) RELAUNCH_GHOSTTY=0 ;;
     --user) USER_INSTALL=1 ;;
     --system) USER_INSTALL=0 ;;
     --strict) STRICT_CHECK=1 ;;
@@ -68,9 +97,9 @@ verify_installation() {
   local NVIM_CONFIG="$CONFIG_HOME/nvim"
   local CHECK_NVIM=$((1 - NO_NVIM)) CHECK_SHELL=$((1 - NO_SHELL)) CHECK_TOOLS="$TOOLS"
   local STRICT="$STRICT_CHECK" PASSES=0 WARNS=0 FAILS=0
-check_pass() { printf '[PASS] %s\n' "$*"; PASSES=$((PASSES + 1)); }
-check_warn() { printf '[WARN] %s\n' "$*"; WARNS=$((WARNS + 1)); }
-check_fail() { printf '[FAIL] %s\n' "$*"; FAILS=$((FAILS + 1)); }
+check_pass() { status PASS "$*"; PASSES=$((PASSES + 1)); }
+check_warn() { status WARN "$*"; WARNS=$((WARNS + 1)); }
+check_fail() { status FAIL "$*"; FAILS=$((FAILS + 1)); }
 check_available() { command -v "$1" >/dev/null 2>&1; }
 check_formula() {
   local label="$1" executable="$2" formula="$3"
@@ -168,6 +197,7 @@ check_formula "fzf selector" fzf fzf
 check_formula "Zellij multiplexer" zellij zellij
 check_file_exists "$HJ_CONFIG/shell.zsh" "Shell helpers installed"
 check_file_exists "$HJ_CONFIG/ui-setup.sh" "Interactive terminal appearance wizard installed"
+check_file_exists "$HJ_CONFIG/restart-ghostty.sh" "Controlled Ghostty app relaunch helper installed"
 check_file_exists "$HJ_CONFIG/ghostty-template.conf" "Portable Ghostty base preserved"
 check_file_exists "$HJ_CONFIG/zellij/template.kdl" "Portable Zellij base preserved"
 check_file_exists "$HJ_CONFIG/zellij/config.kdl" "User Zellij layout installed"
@@ -271,7 +301,10 @@ if [ "$CHECK_TOOLS" -eq 1 ]; then
   check_formula "yq" yq yq
 fi
 
-printf '\nSummary: %d PASS | %d WARN | %d FAIL\n' "$PASSES" "$WARNS" "$FAILS"
+printf '\nSummary: %s%d PASS%s | %s%d WARN%s | %s%d FAIL%s\n' \
+  "$HJ_GREEN" "$PASSES" "$HJ_RESET" \
+  "$HJ_YELLOW" "$WARNS" "$HJ_RESET" \
+  "$HJ_RED" "$FAILS" "$HJ_RESET"
 if [ "$FAILS" -gt 0 ]; then return 1; fi
 if [ "$STRICT" -eq 1 ] && [ "$WARNS" -gt 0 ]; then return 1; fi
 return 0
@@ -364,17 +397,17 @@ brew_formula() {
   local formula="$1" exe
   exe="$(formula_executable "$formula")"
   if command -v "$exe" >/dev/null 2>&1; then
-    echo "SKIP $formula: executable already available ($exe)"
+    status SKIP "$formula: executable already available ($exe)"
     return 0
   fi
   if command -v brew >/dev/null 2>&1 &&
      brew list --formula "$formula" >/dev/null 2>&1; then
-    echo "SKIP $formula: Homebrew reports installed"
+    status SKIP "$formula: Homebrew reports installed"
     return 0
   fi
   if [ "$DRY_RUN" -eq 1 ]; then echo "PLAN brew install $formula"; return 0; fi
   ensure_brew_writable || exit 2
-  echo "INSTALL formula: $formula"
+  status INSTALL "formula: $formula"
   if ! brew install "$formula"; then
     echo "ERROR: Homebrew could not install $formula." >&2
     echo "       If sudo reports 'not in the sudoers file', contact IT for permissions." >&2
@@ -385,16 +418,16 @@ brew_formula() {
 brew_cask() {
   local cask="$1"
   if [ "$cask" = ghostty ] && installed_ghostty; then
-    echo "SKIP ghostty: application already available"
+    status SKIP "ghostty: application already available"
     return 0
   fi
   if [ "$cask" = font-jetbrains-mono-nerd-font ] && installed_nerd_font; then
-    echo "SKIP $cask: font already available"
+    status SKIP "$cask: font already available"
     return 0
   fi
   if command -v brew >/dev/null 2>&1 &&
      brew list --cask "$cask" >/dev/null 2>&1; then
-    echo "SKIP $cask: Homebrew reports installed"
+    status SKIP "$cask: Homebrew reports installed"
     return 0
   fi
   if [ "$DRY_RUN" -eq 1 ]; then
@@ -406,7 +439,7 @@ brew_cask() {
     return 0
   fi
   ensure_brew_writable || exit 2
-  echo "INSTALL cask: $cask"
+  status INSTALL "cask: $cask"
   if [ "$USER_INSTALL" -eq 1 ] && [ "$cask" = ghostty ]; then
     mkdir -p "$HOME/Applications"
     if ! brew install --cask --appdir="$HOME/Applications" "$cask"; then
@@ -427,18 +460,18 @@ copy_asset() {
   [ -f "$source" ] || { echo "Source missing: $source" >&2; exit 2; }
   if [ -L "$dest" ]; then echo "Refusing to replace symlink: $dest" >&2; exit 2; fi
   if [ -f "$dest" ] && cmp -s "$source" "$dest"; then
-    echo "OK unchanged: $dest"
+    status PASS "OK unchanged: $dest"
     return
   fi
   if [ "$DRY_RUN" -eq 1 ]; then echo "PLAN copy $source -> $dest"; return; fi
   if [ -e "$dest" ]; then
     mkdir -p "$BACKUP"
     cp -p "$dest" "$BACKUP/$label"
-    echo "BACKUP $dest -> $BACKUP/$label"
+    status BACKUP "$dest -> $BACKUP/$label"
   fi
   mkdir -p "$(dirname "$dest")"
   cp -p "$source" "$dest"
-  echo "COPY $dest"
+  status COPY "$dest"
 }
 
 install_neovim_config() {
@@ -569,6 +602,7 @@ done
 copy_asset "$ROOT/ghostty/config" "$HJ_DEST/ghostty-template.conf" ghostty-template
 copy_asset "$ROOT/zellij/config.kdl" "$HJ_DEST/zellij/template.kdl" zellij-template
 copy_asset "$ROOT/shell/ui-setup.sh" "$HJ_DEST/ui-setup.sh" ui-setup
+copy_asset "$ROOT/shell/restart-ghostty.sh" "$HJ_DEST/restart-ghostty.sh" ghostty-restart
 copy_asset "$ROOT/ghostty/themes/hack-jitsu" "$GHOSTTY_DEST/themes/hack-jitsu" ghostty-theme
 copy_asset "$ROOT/ghostty/shaders/hack-jitsu-cursor.glsl" "$GHOSTTY_DEST/shaders/hack-jitsu-cursor.glsl" ghostty-shader
 copy_asset "$ROOT/ghostty/hack-jitsu-watermark.png" "$GHOSTTY_DEST/hack-jitsu-watermark.png" ghostty-watermark
@@ -635,7 +669,7 @@ fi
 if [ "$DRY_RUN" -eq 1 ]; then
   echo
   echo "DRY RUN COMPLETE: no applications, settings, or files were changed."
-  echo "Run ./install.sh to install and shut down Ghostty, then launch it manually for dropdown use."
+  echo "Run ./install.sh to install and restart Ghostty automatically."
   exit 0
 fi
 
@@ -656,11 +690,16 @@ else
   echo " HACK-JITSU EDITION | SETUP NEEDS ATTENTION"
 fi
 echo "============================================================"
-echo " AFTER INSTALLATION: Ghostty will QUIT COMPLETELY."
-echo " To use the dropdown later:"
-echo "   1. Start Ghostty once from Applications or with: open -a Ghostty"
-echo "   2. Press Option (Alt) + Tab to show/hide it."
-echo "   3. If the shortcut fails, grant Ghostty access in:"
+if [ "$QUIT_GHOSTTY" -eq 0 ]; then
+  echo " AFTER INSTALLATION: Ghostty stays running; no restart requested."
+elif [ "$RELAUNCH_GHOSTTY" -eq 0 ]; then
+  echo " AFTER INSTALLATION: Ghostty will close without relaunching."
+else
+  echo " AFTER INSTALLATION: Ghostty will close, then restart automatically."
+fi
+echo " Save active terminal jobs before any full restart."
+echo " Press Option (Alt) + Tab to show/hide the dropdown after relaunch."
+echo " If the shortcut fails, grant Ghostty access in:"
 echo "      System Settings > Privacy & Security > Accessibility"
 echo
 echo " IN YOUR TERMINAL"
@@ -683,64 +722,48 @@ echo " DIAGNOSTICS"
 echo "   ./install.sh --check    Read-only validation"
 echo "   ./install.sh --dry-run  Preview changes"
 echo "   Re-run ./install.sh safely: existing packages are skipped."
-echo "   Installed but not running: expected after setup."
+echo "   After installation Ghostty runs in the background (headless dropdown)."
+echo "   Use --no-quit to keep the current app/sessions running."
+echo "   Use --no-relaunch to close the app without restarting."
 echo "   Isolated Zsh: your existing ~/.zshrc is not loaded in Ghostty."
 echo "   Disable auto Zellij: touch ~/.config/ghostty-hackjitsu/zsh/no-auto-zellij"
 echo "============================================================"
 
 if [ "$verify_status" -ne 0 ]; then
   echo "ERROR: Some installation checks failed. Review [FAIL] above." >&2
-  echo "       Ghostty will still be closed to avoid retaining the old session." >&2
+  echo "       Ghostty will still be restarted to use the newly installed profile." >&2
   echo "       Fix those items and rerun ./install.sh --check." >&2
 fi
 
-# Changes to quick-terminal geometry and macos-hidden require a full quit.
-# Never launch Ghostty as a side effect of installation.
-# The whole procedure is skipped by --check/--dry-run above.
-ghostty_running() { pgrep -ix ghostty >/dev/null 2>&1; }
-
-quit_ghostty() {
-  if ! ghostty_running; then
-    echo "[PASS] Ghostty is already stopped. No extra windows or Dock process."
-    return 0
-  fi
-  echo "Closing Ghostty (active tabs and shell jobs will end)."
-  # AppleScript's application quit sends a UI close event and Ghostty shows
-  # "Quit Ghostty / Cancel". A direct TERM targets only this user's Ghostty
-  # process and does not produce that dialog. Never use SIGKILL.
-  if ! pkill -TERM -ix ghostty 2>/dev/null; then
-    echo "[WARN] Unable to stop Ghostty; close it manually when convenient." >&2
-    return 1
-  fi
-  local i
-  for i in {1..20}; do
-    ghostty_running || break
-    sleep 0.2
-  done
-  if ghostty_running; then
-    echo "[WARN] Ghostty still running. Check its windows and close it manually." >&2
-    return 1
-  fi
-  echo "[PASS] Ghostty stopped without a confirmation dialog. It will NOT be relaunched."
-}
-
-if [ "$QUIT_GHOSTTY" -eq 1 ]; then
-  if [ "${TERM_PROGRAM:-}" = ghostty ]; then
-    # The parent shell is inside Ghostty. Let installer finish printing before
-    # terminating its host application. The detached helper never reopens it.
-    echo "Ghostty will quit completely after this terminal session finishes."
-    nohup /bin/bash -c '
-      sleep 2
-      if pgrep -ix ghostty >/dev/null 2>&1; then
-        pkill -TERM -ix ghostty >/dev/null 2>&1 || true
-      fi
-    ' >/dev/null 2>&1 </dev/null &
-    echo "No automatic restart. Start Ghostty later to use Option + Tab."
-  elif ! quit_ghostty; then
-    exit 1
-  fi
+# Ghostty geometry and macOS accessory-app settings require a true app
+# restart, not config reload. The helper waits for process exit before open.
+# --check and --dry-run already returned before reaching this block.
+if [ "$QUIT_GHOSTTY" -eq 0 ]; then
+  status INFO "--no-quit: Ghostty left running. No restart attempted."
 else
-  echo "INFO: --no-quit requested; Ghostty was left running."
+  restart_args=()
+  if [ "$RELAUNCH_GHOSTTY" -eq 0 ]; then
+    restart_args+=(--no-relaunch)
+    status INFO "--no-relaunch: Ghostty will stop without reopening."
+  fi
+  if [ "${TERM_PROGRAM:-}" = ghostty ]; then
+    # Ghostty's subprocess cannot synchronously kill its hosting app.
+    # Let a detached helper wait and restart after this shell disappears.
+    HJ_RESTART_LOG="$STATE_HOME/ghostty-hackjitsu/restart.log"
+    ( umask 077; mkdir -p -m 700 "$(dirname "$HJ_RESTART_LOG")" )
+    if [ -L "$HJ_RESTART_LOG" ]; then
+      status FAIL "Refusing symlinked restart log: $HJ_RESTART_LOG" >&2
+      exit 2
+    fi
+    ( umask 077; : > "$HJ_RESTART_LOG" )
+    chmod 600 "$HJ_RESTART_LOG"
+    status INFO "Scheduling Ghostty shutdown after this installer exits..."
+    status INFO "Restart status: $HJ_RESTART_LOG"
+    nohup /bin/bash "$HJ_DEST/restart-ghostty.sh" --deferred "${restart_args[@]}" >"$HJ_RESTART_LOG" 2>&1 </dev/null &
+    status PASS "Restart helper started; Ghostty will close and restart unless --no-relaunch was used."
+  else
+    bash "$HJ_DEST/restart-ghostty.sh" --foreground "${restart_args[@]}"
+  fi
 fi
 
 exit "$verify_status"

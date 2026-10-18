@@ -84,4 +84,18 @@ if bash "$ROOT/install.sh" --no-quit --check --no-nvim --no-shell --strict >"$TM
   echo "Expected strict doctor to fail when warnings exist" >&2
   exit 1
 fi
-echo "PASS: doctor healthy, automatic verification, missing file and strict warnings"
+# CI log stays plain; forced ANSI mode is test-only.
+HJ_INSTALL_COLOR=always bash "$ROOT/install.sh" --no-quit --check --no-nvim --no-shell >"$TMP/color-pass-warn.log"
+grep -Fq $'\033[1;32m[PASS]\033[0m' "$TMP/color-pass-warn.log"
+grep -Fq $'\033[1;33m[WARN]\033[0m' "$TMP/color-pass-warn.log"
+NO_COLOR=1 HJ_INSTALL_COLOR=always bash "$ROOT/install.sh" --no-quit --check --no-nvim --no-shell >"$TMP/no-color.log"
+if grep -Fq $'\033' "$TMP/no-color.log"; then
+  echo 'NO_COLOR was ignored' >&2; exit 1
+fi
+mv "$XDG_CONFIG_HOME/ghostty-hackjitsu/cheats/network.cheat" "$TMP/network.color.cheat"
+if HJ_INSTALL_COLOR=always bash "$ROOT/install.sh" --no-quit --check --no-nvim --no-shell >"$TMP/color-fail.log" 2>&1; then
+  echo 'Missing network cheat did not fail' >&2; exit 1
+fi
+grep -Fq $'\033[1;31m[FAIL]\033[0m' "$TMP/color-fail.log"
+mv "$TMP/network.color.cheat" "$XDG_CONFIG_HOME/ghostty-hackjitsu/cheats/network.cheat"
+echo "PASS: doctor healthy, automatic verification, missing file, colored statuses and strict warnings"
