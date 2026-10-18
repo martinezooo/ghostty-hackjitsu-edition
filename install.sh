@@ -13,6 +13,7 @@ NO_BREW=0
 NO_SHELL=0
 TOOLS=0
 NO_NVIM=0
+SKIP_LAZY_SYNC=0
 CHECK_ONLY=0
 STRICT_CHECK=0
 USER_INSTALL=-1
@@ -20,7 +21,7 @@ QUIT_GHOSTTY=1
 
 usage() {
   cat <<'EOF'
-Usage: ./install.sh [--dry-run] [--check] [--no-quit] [--user] [--system] [--no-brew] [--no-shell] [--no-nvim] [--tools] [--strict]
+Usage: ./install.sh [--dry-run] [--check] [--no-quit] [--user] [--system] [--no-brew] [--no-shell] [--no-nvim] [--no-lazy-sync] [--tools] [--strict]
   --dry-run   Show intended changes without writing or installing anything
   --check     Verify installed packages and settings without changing anything
   --no-quit   Leave Ghostty running after installation (not recommended)
@@ -30,6 +31,7 @@ Usage: ./install.sh [--dry-run] [--check] [--no-quit] [--user] [--system] [--no-
   --no-brew   Install configuration only (skip Homebrew package installation)
   --no-shell  Skip optional Zsh plugins (isolated Ghostty shell still installed)
   --no-nvim   Skip Neovim, LazyVim, and their dependencies
+  --no-lazy-sync Defer first LazyVim plugin download until starting nvim
   --tools     Also install nmap, jq, ripgrep, and yq for command-line work
 EOF
 }
@@ -49,6 +51,7 @@ for arg in "$@"; do
     --no-brew) NO_BREW=1 ;;
     --no-shell) NO_SHELL=1 ;;
     --no-nvim) NO_NVIM=1 ;;
+    --no-lazy-sync) SKIP_LAZY_SYNC=1 ;;
     --tools) TOOLS=1 ;;
     --help|-h) usage; exit 0 ;;
     *) echo "Unknown option: $arg" >&2; usage; exit 2 ;;
@@ -161,6 +164,19 @@ check_formula "Navi cheats UI" navi navi
 check_formula "fzf selector" fzf fzf
 check_formula "Zellij multiplexer" zellij zellij
 check_file_exists "$HJ_CONFIG/shell.zsh" "Shell helpers installed"
+check_file_exists "$HJ_CONFIG/completion.zsh" "Isolated completion and file-listing module"
+check_file_exists "$HJ_CONFIG/logo.txt" "Hack-Jitsu ASCII logo"
+if [ "$CHECK_SHELL" -eq 1 ]; then
+  for ux_bin in eza fastfetch; do
+    if check_available "$ux_bin"; then check_pass "$ux_bin available"
+    else check_warn "$ux_bin is missing (brew install $ux_bin)"; fi
+  done
+  if check_available brew && brew list --formula fzf-tab >/dev/null 2>&1; then
+    check_pass "fzf-tab installed for interactive completions"
+  else
+    check_warn "fzf-tab not installed; standard Zsh completion will be used"
+  fi
+fi
 check_file_exists "$HJ_CONFIG/zellij/config.kdl" "Isolated Zellij config installed"
 if [ -f "$HJ_CONFIG/shell.zsh" ] && check_available zsh &&
    zsh -n "$HJ_CONFIG/shell.zsh" >/dev/null 2>&1; then
@@ -433,6 +449,44 @@ install_neovim_config() {
   echo "COPY bundled LazyVim starter -> $dest"
 }
 
+# Complete the initial Neovim/LazyVim download during installation,
+# not unexpectedly when the first real log file is opened in the editor.
+prepare_lazyvim() {
+  local nvim_config="$CONFIG_HOME/nvim/init.lua"
+  local lazy_dir="${XDG_DATA_HOME:-$HOME/.local/share}/nvim/lazy/LazyVim"
+  if [ "$NO_NVIM" -eq 1 ] || [ "$NO_BREW" -eq 1 ] ||
+     [ "$SKIP_LAZY_SYNC" -eq 1 ] || [ "$DRY_RUN" -eq 1 ]; then
+    return 0
+  fi
+  # A preexisting or unrelated nvim profile is never bootstrapped by us.
+  if [ ! -f "$nvim_config" ] ||
+     ! grep -Fq 'Portable LazyVim configuration for Ghostty Hack-Jitsu Edition' "$nvim_config"; then
+    return 0
+  fi
+  if [ -d "$lazy_dir" ]; then
+    echo "SKIP LazyVim: plugins already initialized"
+    return 0
+  fi
+  if ! command -v nvim >/dev/null 2>&1 ||
+     ! command -v git >/dev/null 2>&1; then
+    echo "WARNING: Neovim/git unavailable; first nvim start may install LazyVim plugins." >&2
+    return 0
+  fi
+  echo "Preparing LazyVim plugins now (first setup may take a few minutes)..."
+  local log
+  log="$(mktemp)"
+  if nvim --headless '+Lazy! sync' '+qa!' >"$log" 2>&1 &&
+     [ -d "$lazy_dir" ] &&
+     ! grep -Eq 'Error detected|Failed to run .config.|E5108|FATAL' "$log"; then
+    echo "OK LazyVim plugins initialized; opening a file should not trigger a first-time sync."
+  else
+    echo "WARNING: LazyVim plugin setup failed. Review the last output below:" >&2
+    tail -n 12 "$log" >&2
+    echo "         Try again later from Neovim: :Lazy sync" >&2
+  fi
+  rm -f "$log"
+}
+
 if [ "$NO_BREW" -eq 0 ]; then
   brew_cask ghostty
   brew_cask font-jetbrains-mono-nerd-font
@@ -442,6 +496,10 @@ if [ "$NO_BREW" -eq 0 ]; then
   if [ "$NO_SHELL" -eq 0 ]; then
     brew_formula zsh-autosuggestions
     brew_formula zsh-syntax-highlighting
+    brew_formula zsh-completions
+    brew_formula fzf-tab
+    brew_formula eza
+    brew_formula fastfetch
   fi
   if [ "$NO_NVIM" -eq 0 ]; then
     for pkg in neovim lazygit ripgrep fd tree-sitter-cli; do brew_formula "$pkg"; done
@@ -454,6 +512,7 @@ fi
 if [ "$NO_NVIM" -eq 0 ]; then
   install_neovim_config
 fi
+prepare_lazyvim
 
 # Ghostty loads the macOS application-support config after XDG config.
 # An existing file in that location can silently override this profile.
@@ -470,6 +529,8 @@ copy_asset "$ROOT/ghostty/themes/hack-jitsu" "$GHOSTTY_DEST/themes/hack-jitsu" g
 copy_asset "$ROOT/ghostty/shaders/hack-jitsu-cursor.glsl" "$GHOSTTY_DEST/shaders/hack-jitsu-cursor.glsl" ghostty-shader
 copy_asset "$ROOT/ghostty/hack-jitsu-watermark.png" "$GHOSTTY_DEST/hack-jitsu-watermark.png" ghostty-watermark
 copy_asset "$ROOT/shell/hj.zsh" "$HJ_DEST/shell.zsh" hj-shell
+copy_asset "$ROOT/shell/hj-completion.zsh" "$HJ_DEST/completion.zsh" hj-completion
+copy_asset "$ROOT/shell/hj-logo.txt" "$HJ_DEST/logo.txt" hj-logo
 copy_asset "$ROOT/zellij/config.kdl" "$HJ_DEST/zellij/config.kdl" zellij-config
 
 for file in "$ROOT"/cheats/*.cheat; do
@@ -548,6 +609,9 @@ echo
 echo " IN YOUR TERMINAL"
 echo "   hj       Show Hack-Jitsu quick-start guide"
 echo "   hjhelp   Search interactive pentest/admin/network cheats"
+echo "   hjfetch  Show HACK JITSU system dashboard"
+echo "   ls/ll    Colorful file listings with Nerd Font icons"
+echo "   Tab      Fuzzy completion menu with argument descriptions"
 echo "   Zellij   Starts automatically inside the dropdown (session: hackjitsu)"
 echo "   wave     Reattach to hackjitsu session after leaving it"
 if [ "$NO_NVIM" -eq 0 ]; then

@@ -28,9 +28,13 @@ hj() {
   printf '  Option + Tab       Toggle the dropdown terminal\n'
   printf '  hj                 Show this guide again\n'
   printf '  hjhelp             Interactive pentest, network, admin and terminal cheats\n'
+  printf '  hjfetch            HACK JITSU system dashboard\n'
+  printf '  ls / ll / la / lt  File lists with colors and icons\n'
+  printf '  Tab                Interactive argument completion\n'
   printf '  Zellij             Starts automatically in Ghostty (session: hackjitsu)
   wave               Reattach to hackjitsu after leaving Zellij\n'
   printf '  nvim               Start Neovim + LazyVim\n'
+  printf '  Ctrl+P then N      Open a second Zellij pane with shell\n'
   printf '\n'
   printf '  Troubleshooting: ./install.sh --check  (from the cloned repository)\n'
 }
@@ -84,8 +88,21 @@ if [[ -o interactive ]] &&
   setopt prompt_subst
   # Red username / grey hostname / white directory / red Git branch.
   # %n, %m and %~ are expanded by Zsh, never stored as personal data in Git.
-  PROMPT='%B%F{#ec1313}%n%f%b%F{242}@%m%f %F{white}%~%f${vcs_info_msg_0_} %B%F{#ec1313}❯%f%b '
-  RPROMPT=''
+  PROMPT='%F{242}╭─%f %B%F{white}%~%f%b${vcs_info_msg_0_}\n%B%F{#ec1313}❯%f%b '
+  RPROMPT='%F{242}%D{%H:%M}%f'
+
+  # In Zellij, single-file "nvim filename" opens the editor in-place and
+  # restores the ORIGINAL shell pane when :q! closes the editor.
+  # Complex Neovim invocations keep their normal CLI semantics.
+  if [[ -n "${ZELLIJ:-}" ]] && (( $+commands[nvim] && $+commands[zellij] )); then
+    nvim() {
+      if (( $# == 1 )) && [[ "$1" != -* ]] && [[ "${HJ_NVIM_DIRECT:-0}" != 1 ]]; then
+        command env EDITOR=nvim VISUAL=nvim zellij edit --in-place "$1"
+      else
+        command nvim "$@"
+      fi
+    }
+  fi
 fi
 
 # Show the guide once per macOS user, in Ghostty only, never in SSH/noninteractive shells.

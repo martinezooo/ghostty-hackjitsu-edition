@@ -84,10 +84,29 @@ test ! -s "$HJ_TEST_BREW_LOG"
 grep -Fq '[FAIL] Ghostty asset: themes/hack-jitsu' "$TMP/check.log"
 # A missing CLI component is installed once, without sudo on the mock staff account.
 export HJ_TEST_MISSING=tree-sitter-cli
-bash "$ROOT/install.sh" --no-quit --no-shell >"$TMP/missing-installed.log"
+bash "$ROOT/install.sh" --no-quit --no-shell --no-lazy-sync >"$TMP/missing-installed.log"
 grep -Fq 'install tree-sitter-cli (no_sudo=1)' "$HJ_TEST_BREW_LOG"
 grep -Fq 'SKIP ghostty:' "$TMP/missing-installed.log"
-bash "$ROOT/install.sh" --no-quit --no-shell >"$TMP/missing-second.log"
+bash "$ROOT/install.sh" --no-quit --no-shell --no-lazy-sync >"$TMP/missing-second.log"
 test "$(wc -l < "$HJ_TEST_BREW_LOG" | tr -d ' ')" -eq 1
 grep -Fq 'SKIP tree-sitter-cli:' "$TMP/missing-second.log"
+# First-run LazyVim sync must happen once, during installation, not on file open.
+cat > "$TMP/bin/nvim" <<'MOCK_NVIM'
+#!/bin/sh
+printf '%s\\n' "$*" >> "$HJ_TEST_NVIM_LOG"
+if [ "$1" = --headless ] && [ "$2" = '+Lazy! sync' ]; then
+  mkdir -p "$XDG_DATA_HOME/nvim/lazy/LazyVim"
+fi
+exit 0
+MOCK_NVIM
+chmod +x "$TMP/bin/nvim"
+export HJ_TEST_NVIM_LOG="$TMP/nvim.log"
+: > "$HJ_TEST_NVIM_LOG"
+bash "$ROOT/install.sh" --no-quit --no-shell >"$TMP/lazy-initial.log"
+grep -Fq 'Preparing LazyVim plugins now' "$TMP/lazy-initial.log"
+grep -Fq 'OK LazyVim plugins initialized' "$TMP/lazy-initial.log"
+test "$(grep -Fc -- '--headless +Lazy! sync +qa!' "$HJ_TEST_NVIM_LOG")" -eq 1
+bash "$ROOT/install.sh" --no-quit --no-shell >"$TMP/lazy-repeat.log"
+grep -Fq 'SKIP LazyVim: plugins already initialized' "$TMP/lazy-repeat.log"
+test "$(grep -Fc -- '--headless +Lazy! sync +qa!' "$HJ_TEST_NVIM_LOG")" -eq 1
 echo 'PASS: existing packages skipped, one missing tool installed once without sudo, diagnostic read-only'

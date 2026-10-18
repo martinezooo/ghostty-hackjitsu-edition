@@ -30,6 +30,11 @@ setopt SHARE_HISTORY EXTENDED_HISTORY HIST_IGNORE_DUPS HIST_IGNORE_SPACE HIST_RE
 if [[ -n "${GHOSTTY_RESOURCES_DIR:-}" && -r "$GHOSTTY_RESOURCES_DIR/shell-integration/zsh/ghostty-integration" ]]; then
   source "$GHOSTTY_RESOURCES_DIR/shell-integration/zsh/ghostty-integration"
 fi
+_hj_completion="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty-hackjitsu/completion.zsh"
+if [[ -r "$_hj_completion" ]]; then
+  source "$_hj_completion"
+fi
+unset _hj_completion
 _hj_core="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty-hackjitsu/shell.zsh"
 if [[ -r "$_hj_core" ]]; then
   source "$_hj_core"
