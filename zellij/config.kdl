@@ -6,6 +6,8 @@
 default_mode "normal"
 show_release_notes false
 simplified_ui true
+// Do not overwrite macOS clipboard merely by selecting text in a pane.
+copy_on_select false
 // Start with a normal shell pane, not Zellij's first-run/about screen.
 show_startup_tips false
 default_layout "default"

@@ -25,7 +25,10 @@ cursor-style = bar
 cursor-style-blink = true
 cursor-opacity = 0.8
 mouse-hide-while-typing = true
-copy-on-select = clipboard
+# Explicit Cmd+C copy avoids unexpected clipboard replacement on selection.
+copy-on-select = false
+# Improve wheel/trackpad scrolling without changing system-wide settings.
+mouse-scroll-multiplier = precision:2,discrete:4
 
 # Guake-mode: brak ikony w Docku i w Cmd+Tab, start bez zwyklego okna.
 # Jedyne wejscie: global opt+tab. Uwaga: przy macos-hidden macOS nie
