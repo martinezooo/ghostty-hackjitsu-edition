@@ -23,6 +23,13 @@ test -e "$PREF"
 grep -Fqx "title = $(id -un)" "$GC"
 grep -Fqx 'macos-option-as-alt = left' "$GC"
 grep -Fqx 'default_layout "default"' "$ZC"
+# Clipboard settings must survive wizard renders and reinstalls.
+assert_clipboard_config() {
+  grep -Fqx 'mouse_mode false' "$ZC"
+  grep -Fqx 'copy_command "pbcopy"' "$ZC"
+  grep -Fqx 'copy_on_select false' "$ZC"
+}
+assert_clipboard_config
 bash "$SETUP" --show | grep -Fq 'Bar: classic'
 # The wizard should fail gracefully in non-interactive mode, without changes.
 if bash "$SETUP" </dev/null >"$TMP/wizard.out" 2>&1; then
@@ -35,6 +42,7 @@ bash "$SETUP" --title 'analyst' --bar compact --option both >"$TMP/compact.out"
 grep -Fqx 'title = analyst' "$GC"
 grep -Fqx 'macos-option-as-alt = true' "$GC"
 grep -Fqx 'default_layout "compact"' "$ZC"
+assert_clipboard_config
 grep -Fqx 'title=analyst' "$PREF"
 grep -Fqx 'bar=compact' "$PREF"
 grep -Fqx 'option=both' "$PREF"
@@ -72,11 +80,13 @@ test "$before" -eq "$after"
 bash "$ROOT/install.sh" --no-brew --no-quit --no-nvim >"$TMP/reinstall.log"
 grep -Fqx 'title = analyst' "$GC"
 grep -Fqx 'default_layout "compact"' "$ZC"
+assert_clipboard_config
 test "$(find "$XDG_STATE_HOME/ghostty-hackjitsu/backups" -type f | wc -l)" -eq "$after"
 # Switch back to original username + normal bar, left Option for Polish input.
 bash "$SETUP" --title "$(id -un)" --bar classic --option left >/dev/null
 grep -Fqx 'default_layout "default"' "$ZC"
 grep -Fqx 'macos-option-as-alt = left' "$GC"
+assert_clipboard_config
 # User-controlled title must not be used to inject Ghostty directives.
 if bash "$SETUP" --title 'admin
 theme = insecure' >/dev/null 2>&1; then

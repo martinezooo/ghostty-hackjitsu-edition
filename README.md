@@ -255,6 +255,23 @@ To temporarily disable automatic Zellij startup for your user, run `touch ~/.con
 
 The dropdown uses **55% of the selected display height and 85% of its width**, rather than the previous hard-coded 1728px width that overflowed smaller monitors. Ghostty chooses the display under your mouse (`quick-terminal-screen = mouse`). Option + Tab requires Ghostty to be running and macOS Accessibility permission; conflicts with other global shortcuts are possible.
 
+### Copy and paste in Ghostty / Zellij
+
+Hack-Jitsu's isolated Zellij profile uses `mouse_mode false`, so dragging
+selects text through Ghostty. Use **Cmd+C** to copy a selection and **Cmd+V**
+to paste. Selecting text alone does **not** replace the clipboard
+(`copy-on-select = false` in Ghostty and `copy_on_select false` in Zellij).
+When Zellij itself copies through its scroll/keyboard mode, it runs macOS
+`pbcopy` rather than relying on OSC 52 passthrough.
+
+Disabling Zellij mouse capture also disables its native mouse-based pane
+controls and wheel scrolling; use Zellij keyboard navigation / scroll mode
+(`Ctrl+S`), or restore `mouse_mode true` if you prefer Zellij mouse control
+and Shift-drag selection. The isolated profile is generated from
+`zellij/config.kdl`; after updating the repository, reinstall the profile
+with `./install.sh --no-brew --no-nvim --no-quit` and open a **new** Zellij
+session. `exit` inside a pane does not guarantee a fresh configuration.
+
 ## Cheats
 
 Plain `.cheat` files are browsed with `hjhelp`. Categories: pentest, network/macos, admin/ssh/docker/proxmox, Android/ADB, and terminal. Entries are templates with placeholders. Some commands require extra tools (e.g. ffuf, sqlmap, netexec, adb, scrcpy) that are **not** installed automatically.

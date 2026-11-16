@@ -6,7 +6,13 @@
 default_mode "normal"
 show_release_notes false
 simplified_ui true
-// Do not overwrite macOS clipboard merely by selecting text in a pane.
+// Let Ghostty handle native mouse text selection (Cmd+C / Cmd+V).
+// Zellij mouse capture can prevent selecting text in Ghostty.
+mouse_mode false
+// When copying through Zellij keyboard/scroll mode, use macOS directly
+// instead of relying on OSC 52 passthrough.
+copy_command "pbcopy"
+// Do not overwrite the clipboard just by selecting text.
 copy_on_select false
 // Start with a normal shell pane, not Zellij's first-run/about screen.
 show_startup_tips false
