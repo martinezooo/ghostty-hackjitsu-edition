@@ -6,14 +6,16 @@
 default_mode "normal"
 show_release_notes false
 simplified_ui true
-// Let Ghostty handle native mouse text selection (Cmd+C / Cmd+V).
-// Zellij mouse capture can prevent selecting text in Ghostty.
-mouse_mode false
-// When copying through Zellij keyboard/scroll mode, use macOS directly
-// instead of relying on OSC 52 passthrough.
+// Keep Zellij mouse wheel and trackpad scrolling. Disabling mouse mode
+// breaks normal scrollback behavior inside panes.
+mouse_mode true
+// On Zellij 0.45.1+, scrolling must not automatically change to SCROLL mode.
+scroll_mode_sync false
+// Copy selected text directly to the macOS clipboard instead of OSC 52.
 copy_command "pbcopy"
-// Do not overwrite the clipboard just by selecting text.
-copy_on_select false
+// With mouse capture enabled, Zellij owns drag-selection; copy on release.
+// Hold Shift when dragging to select in Ghostty instead.
+copy_on_select true
 // Start with a normal shell pane, not Zellij's first-run/about screen.
 show_startup_tips false
 default_layout "default"

@@ -257,20 +257,19 @@ The dropdown uses **55% of the selected display height and 85% of its width**, r
 
 ### Copy and paste in Ghostty / Zellij
 
-Hack-Jitsu's isolated Zellij profile uses `mouse_mode false`, so dragging
-selects text through Ghostty. Use **Cmd+C** to copy a selection and **Cmd+V**
-to paste. Selecting text alone does **not** replace the clipboard
-(`copy-on-select = false` in Ghostty and `copy_on_select false` in Zellij).
-When Zellij itself copies through its scroll/keyboard mode, it runs macOS
-`pbcopy` rather than relying on OSC 52 passthrough.
+Hack-Jitsu keeps Zellij mouse handling enabled (`mouse_mode true`), so
+wheel/trackpad scrolling and mouse pane controls work as intended. Drag to
+select text inside Zellij; it is copied automatically to the macOS clipboard
+using `pbcopy` (`copy_on_select true`). Paste with **Cmd+V**. For native
+Ghostty selection and **Cmd+C**, hold **Shift** while dragging. Ghostty's
+own `copy-on-select = false` prevents duplicate copying outside Zellij.
 
-Disabling Zellij mouse capture also disables its native mouse-based pane
-controls and wheel scrolling; use Zellij keyboard navigation / scroll mode
-(`Ctrl+S`), or restore `mouse_mode true` if you prefer Zellij mouse control
-and Shift-drag selection. The isolated profile is generated from
-`zellij/config.kdl`; after updating the repository, reinstall the profile
-with `./install.sh --no-brew --no-nvim --no-quit` and open a **new** Zellij
-session. `exit` inside a pane does not guarantee a fresh configuration.
+On Zellij 0.45.1+, `scroll_mode_sync false` avoids switching into `SCROLL`
+mode just because you use the mouse wheel. Older Zellij releases ignore
+this newer option; they did not have that automatic mode-switch behavior.
+The isolated profile is regenerated from `zellij/config.kdl`. Update the
+repository, install with `./install.sh --no-brew --no-nvim --no-quit`, and
+open a **new** Zellij session. An `exit` within a pane is not sufficient.
 
 ## Cheats
 

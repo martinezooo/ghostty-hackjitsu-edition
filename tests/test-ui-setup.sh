@@ -25,9 +25,10 @@ grep -Fqx 'macos-option-as-alt = left' "$GC"
 grep -Fqx 'default_layout "default"' "$ZC"
 # Clipboard settings must survive wizard renders and reinstalls.
 assert_clipboard_config() {
-  grep -Fqx 'mouse_mode false' "$ZC"
+  grep -Fqx 'mouse_mode true' "$ZC"
+  grep -Fqx 'scroll_mode_sync false' "$ZC"
   grep -Fqx 'copy_command "pbcopy"' "$ZC"
-  grep -Fqx 'copy_on_select false' "$ZC"
+  grep -Fqx 'copy_on_select true' "$ZC"
 }
 assert_clipboard_config
 bash "$SETUP" --show | grep -Fq 'Bar: classic'
