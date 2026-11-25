@@ -253,7 +253,7 @@ To temporarily disable automatic Zellij startup for your user, run `touch ~/.con
 | `hj` | Print Hack-Jitsu greeting |
 | `wave` | Reattach to the default Zellij session after leaving it |
 
-The dropdown uses **55% of the selected display height and 85% of its width**, rather than the previous hard-coded 1728px width that overflowed smaller monitors. Ghostty chooses the display under your mouse (`quick-terminal-screen = mouse`). Option + Tab requires Ghostty to be running and macOS Accessibility permission; conflicts with other global shortcuts are possible.
+The dropdown uses **75% of the selected display height and 95% of its width**, rather than the previous hard-coded 1728px width that overflowed smaller monitors. It stays visible when focus moves to another app (`quick-terminal-autohide = false`); use **Option+Tab** to hide it intentionally. Ghostty chooses the display under your mouse (`quick-terminal-screen = mouse`). Option + Tab requires Ghostty to be running and macOS Accessibility permission; conflicts with other global shortcuts are possible.
 
 ### Copy and paste in Ghostty / Zellij
 
@@ -270,6 +270,8 @@ this newer option; they did not have that automatic mode-switch behavior.
 The isolated profile is regenerated from `zellij/config.kdl`. Update the
 repository, install with `./install.sh --no-brew --no-nvim --no-quit`, and
 open a **new** Zellij session. An `exit` within a pane is not sufficient.
+
+New Zellij tabs created with **Ctrl+T**, then **N**, may be labeled `~` when the shell starts in the home directory. This reflects the working directory, not a failed tab creation. Use **Ctrl+T**, then **R**, type a descriptive name and press Enter to rename a tab. On macOS, Quick Terminal itself cannot create native Ghostty tabs.
 
 ## Cheats
 
