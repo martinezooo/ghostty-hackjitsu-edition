@@ -44,8 +44,7 @@ quick-terminal-position = top
 # Procenty zamiast stalej szerokosci MacBooka: Ghostty dopasowuje panel
 # do ekranu wskazanego myszka (takze mniejszego monitora sluzbowego).
 # Dla top: najpierw wysokosc, potem szerokosc.
-# Większy panel do pracy z kartami Zellij, bez przypadkowego chowania.
-quick-terminal-size = 75%,95%
+quick-terminal-size = 55%,85%
 quick-terminal-screen = mouse
 quick-terminal-autohide = false
 quick-terminal-space-behavior = move

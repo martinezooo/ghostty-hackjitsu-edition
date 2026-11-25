@@ -23,7 +23,7 @@ test -e "$PREF"
 grep -Fqx "title = $(id -un)" "$GC"
 grep -Fqx 'macos-option-as-alt = left' "$GC"
 grep -Fqx 'default_layout "default"' "$ZC"
-grep -Fqx 'quick-terminal-size = 75%,95%' "$GC"
+grep -Fqx 'quick-terminal-size = 55%,85%' "$GC"
 grep -Fqx 'quick-terminal-autohide = false' "$GC"
 # Clipboard settings must survive wizard renders and reinstalls.
 assert_clipboard_config() {
