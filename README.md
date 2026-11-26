@@ -255,6 +255,24 @@ To temporarily disable automatic Zellij startup for your user, run `touch ~/.con
 
 The dropdown uses **55% of the selected display height and 85% of its width**, rather than the previous hard-coded 1728px width that overflowed smaller monitors. It stays visible when focus moves to another app (`quick-terminal-autohide = false`); use **Option+Tab** to hide it intentionally. Ghostty chooses the display under your mouse (`quick-terminal-screen = mouse`). Option + Tab requires Ghostty to be running and macOS Accessibility permission; conflicts with other global shortcuts are possible.
 
+### Option+arrows and tabs during SSH
+
+Ghostty's macOS default converts Option+Right/Left to `Esc+f` / `Esc+b`.
+Zellij interprets `Esc+f` as `Alt+f` and opens a floating pane (with a
+`PIN` frame). Hack-Jitsu removes those two Ghostty bindings so **left
+Option+Left/Right** navigates between Zellij panes/tabs as intended.
+The right Option remains available for Polish characters.
+
+Zellij 0.45+ can automatically zoom into a nested remote Zellij session
+on SSH. Hack-Jitsu opts out (`nested_session_handling "never"`) to retain
+local tab navigation; sessions also start with bars visible. A plain
+`ssh -N` tunnel does not start a remote Zellij, so if its tab bar still
+disappears, investigate that separately rather than attributing it to
+nested-session detection. To restore manually hidden bars from another
+shell in the same Zellij session, run `zellij action show-bars`.
+Existing sessions may retain old runtime settings; open a new session
+after updating the profile. Do not kill tunnel processes unnecessarily.
+
 ### Copy and paste in Ghostty / Zellij
 
 Hack-Jitsu keeps Zellij mouse handling enabled (`mouse_mode true`), so

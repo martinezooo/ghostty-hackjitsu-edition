@@ -25,6 +25,10 @@ grep -Fqx 'macos-option-as-alt = left' "$GC"
 grep -Fqx 'default_layout "default"' "$ZC"
 grep -Fqx 'quick-terminal-size = 55%,85%' "$GC"
 grep -Fqx 'quick-terminal-autohide = false' "$GC"
+grep -Fqx 'keybind = alt+left=unbind' "$GC"
+grep -Fqx 'keybind = alt+right=unbind' "$GC"
+grep -Fqx 'nested_session_handling "never"' "$ZC"
+grep -Fqx 'bars_hidden_on_start "none"' "$ZC"
 # Clipboard settings must survive wizard renders and reinstalls.
 assert_clipboard_config() {
   grep -Fqx 'mouse_mode true' "$ZC"

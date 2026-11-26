@@ -83,6 +83,11 @@ keybind = cmd+shift+comma=reload_config
 # Copy / paste zostają macowe
 keybind = cmd+c=copy_to_clipboard
 keybind = cmd+v=paste_from_clipboard
+# Ghostty normally sends Esc+b/f for Option+arrows. Zellij reads Esc+f as
+# Alt+f (floating pane) instead of Alt+Right (pane/tab navigation).
+# Remove Ghostty's word-navigation shortcuts so Alt+arrows reach Zellij.
+keybind = alt+left=unbind
+keybind = alt+right=unbind
 
 # Anulowanie procesu
 keybind = ctrl+c=unbind

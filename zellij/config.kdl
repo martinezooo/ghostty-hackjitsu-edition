@@ -11,6 +11,11 @@ simplified_ui true
 mouse_mode true
 // On Zellij 0.45.1+, scrolling must not automatically change to SCROLL mode.
 scroll_mode_sync false
+// Do not automatically zoom or take over a nested Zellij via SSH.
+// Keep the local tab/status bars and navigation under the local session.
+nested_session_handling "never"
+// Never start a new session with tab/status bars hidden.
+bars_hidden_on_start "none"
 // Copy selected text directly to the macOS clipboard instead of OSC 52.
 copy_command "pbcopy"
 // With mouse capture enabled, Zellij owns drag-selection; copy on release.

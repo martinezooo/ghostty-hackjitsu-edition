@@ -22,6 +22,13 @@ grep -Fq 'theme = hack-jitsu' <<< "$output"
 grep -Fq 'font-family = JetBrainsMono Nerd Font Mono' <<< "$output"
 grep -Fq 'quick-terminal-size = 55%,85%' <<< "$output"
 grep -Fq 'quick-terminal-autohide = false' <<< "$output"
+# The macOS Option+Arrow default is Esc+b/f, which Zellij misreads as Alt+b/f.
+# Verify Ghostty's effective shortcuts no longer capture the arrows.
+bindings="$("$GHOSTTY" +list-keybinds)"
+if grep -Eq '^keybind = alt\+arrow_(left|right)=esc:[bf]$' <<< "$bindings"; then
+  echo 'FAIL: Ghostty still intercepts Option+Arrow as word navigation' >&2
+  exit 1
+fi
 grep -Fq 'hack-jitsu-cursor.glsl' <<< "$output"
 grep -Fq 'hack-jitsu-watermark.png' <<< "$output"
 grep -Eq 'alt\+tab=toggle_quick_terminal' <<< "$("$GHOSTTY" +list-keybinds)"
